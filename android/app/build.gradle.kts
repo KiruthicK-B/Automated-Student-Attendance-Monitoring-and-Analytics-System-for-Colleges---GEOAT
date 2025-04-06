@@ -48,7 +48,7 @@ flutter {
 dependencies {
     // Import the Firebase BoM (Bill of Materials)
     implementation(platform("com.google.firebase:firebase-bom:33.11.0"))
-
+    implementation("org.jetbrains.kotlin:kotlin-stdlib:2.1.20")
     // Add the Firebase SDKs you need
     implementation("com.google.firebase:firebase-auth")      // Firebase Authentication
     implementation("com.google.firebase:firebase-firestore") // Firestore Database

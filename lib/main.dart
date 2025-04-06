@@ -6,10 +6,15 @@ import 'dart:async';
 import 'SigninScreen.dart';
 import 'home.dart';
 import 'index.dart';
+import 'package:firebase_core/firebase_core.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 
-void main() {
-  runApp(const MyApp());
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
+  runApp(MyApp());
 }
+
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -24,6 +29,7 @@ class MyApp extends StatelessWidget {
         '/onboarding': (context) => const OnboardingScreen(),
         '/login': (context) => const LoginPage(),
         '/signin': (context) => const SignInScreen(),
+        '/tickscreen': (context) => const TickAnimation(message: 'Login Successfull',),
        // '/signup': (context) => const SignUpScreen(),
         '/index': (context) => const IndexScreen(),
         '/admin': (context) => const HomeScreen_2(),
@@ -298,10 +304,65 @@ class _OnboardingPage2State extends State<OnboardingPage2> {
   }
 }
 
-
-// Login Screen
-class LoginPage extends StatelessWidget {
+class LoginPage extends StatefulWidget {
   const LoginPage({super.key});
+
+  @override
+  _LoginPageState createState() => _LoginPageState();
+}
+
+class _LoginPageState extends State<LoginPage> {
+  final TextEditingController emailController = TextEditingController();
+  final TextEditingController passwordController = TextEditingController();
+  bool isLoading = false;
+
+  Future<void> loginUser(bool isAdmin) async {
+    setState(() {
+      isLoading = true;
+    });
+
+    String email = emailController.text.trim();
+    String password = passwordController.text.trim();
+
+    print("Attempting Login - Email: $email, Password: $password");
+
+    try {
+      QuerySnapshot querySnapshot = await FirebaseFirestore.instance
+          .collection('userdetails')
+          .where('email', isEqualTo: email)
+          .get();
+
+      if (querySnapshot.docs.isEmpty) {
+        print("Login Failed: User not found");
+        showError("User not found!");
+      } else {
+        var userData = querySnapshot.docs.first.data() as Map<String, dynamic>;
+        String storedPassword = userData['password'].toString();
+
+        print("User Found: ${userData['name']}, Stored Password: $storedPassword");
+
+        if (storedPassword == password) {
+          print("Login Successful for ${userData['name']} (Admin: $isAdmin)");
+          Navigator.pushNamed(context, '/tickscreen', arguments: {'isAdmin': isAdmin});
+        } else {
+          showError("Incorrect password!");
+        }
+      }
+    } catch (e) {
+      print("Login Error: $e");
+      showError("Login failed! Try again.");
+    }
+
+    setState(() {
+      isLoading = false;
+    });
+  }
+
+  void showError(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(content: Text(message), backgroundColor: Colors.red),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -310,7 +371,7 @@ class LoginPage extends StatelessWidget {
         padding: const EdgeInsets.all(16.0),
         child: Center(
           child: Column(
-            mainAxisSize: MainAxisSize.min, // Minimize column height to content
+            mainAxisSize: MainAxisSize.min,
             children: [
               Image.asset(
                 'assets/Splash2.png', // Replace with your logo asset
@@ -318,49 +379,62 @@ class LoginPage extends StatelessWidget {
                 width: 150,
               ),
               const SizedBox(height: 30),
-              ElevatedButton(
-                onPressed: () {
-                  // Navigate to User Sign-in page
-                  Navigator.pushNamed(context, '/signin', arguments: {'isAdmin': false});
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.green,
-                  minimumSize: const Size(double.infinity, 50),
-                ),
-                child: const Text(
-                  'User Login',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
+
+              // Email Input
+              TextField(
+                controller: emailController,
+                decoration: const InputDecoration(
+                  labelText: "Email",
+                  border: OutlineInputBorder(),
                 ),
               ),
               const SizedBox(height: 20),
-              ElevatedButton(
-                onPressed: () {
-                  // Navigate to Admin Sign-in page
-                  Navigator.pushNamed(context, '/signin', arguments: {'isAdmin': true});
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  minimumSize: const Size(double.infinity, 50),
-                ),
-                child: const Text(
-                  'Admin Login',
-                  style: TextStyle(
-                    fontWeight: FontWeight.bold,
-                    color: Colors.white,
-                  ),
+
+              // Password Input
+              TextField(
+                controller: passwordController,
+                obscureText: true,
+                decoration: const InputDecoration(
+                  labelText: "Password",
+                  border: OutlineInputBorder(),
                 ),
               ),
+              const SizedBox(height: 20),
+
+              isLoading
+                  ? const CircularProgressIndicator()
+                  : Column(
+                      children: [
+                        ElevatedButton(
+                          onPressed: () => loginUser(false), // User Login
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            minimumSize: const Size(double.infinity, 50),
+                          ),
+                          child: const Text(
+                            'User Login',
+                            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                          ),
+                        ),
+                        const SizedBox(height: 20),
+                        ElevatedButton(
+                          onPressed: () => loginUser(true), // Admin Login
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.red,
+                            minimumSize: const Size(double.infinity, 50),
+                          ),
+                          child: const Text(
+                            'Admin Login',
+                            style: TextStyle(fontWeight: FontWeight.bold, color: Colors.white),
+                          ),
+                        ),
+                      ],
+                    ),
+
               const SizedBox(height: 40),
               const Text(
                 "Don't know about us? Help",
-                style: TextStyle(
-                  fontSize: 16,
-                  color: Colors.blue,
-                  decoration: TextDecoration.underline,
-                ),
+                style: TextStyle(fontSize: 16, color: Colors.blue, decoration: TextDecoration.underline),
               ),
             ],
           ),
@@ -383,120 +457,6 @@ class LoginPage extends StatelessWidget {
     );
   }
 }
-
-
-// Sign-up Screen
-// class SignUpScreen extends StatelessWidget {
-//   const SignUpScreen({super.key});
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Scaffold(
-//       appBar: AppBar(
-//         backgroundColor: Colors.transparent,
-//         elevation: 0,
-//       ),
-//       body: Padding(
-//         padding: const EdgeInsets.all(16.0),
-//         child: Column(
-//           mainAxisAlignment: MainAxisAlignment.spaceBetween, // Aligns content between top and bottom
-//           children: [
-//             // Logo at the top
-//             Column(
-//               children: [
-//                 Image.asset(
-//                   'assets/Splash2.png', // Replace with your logo asset
-//                   height: 180,
-//                   width: 180,
-//                 ),
-//               ],
-//             ),
-
-//             // Form fields
-//             Column(
-//               children: [
-//                 const TextField(
-//                   decoration: InputDecoration(
-//                     labelText: 'Name',
-//                     prefixIcon: Icon(Icons.person),
-//                     border: OutlineInputBorder(),
-//                   ),
-//                 ),
-//                 const SizedBox(height: 10),
-//                 const TextField(
-//                   decoration: InputDecoration(
-//                     labelText: 'Email',
-//                     prefixIcon: Icon(Icons.email),
-//                     border: OutlineInputBorder(),
-//                   ),
-//                 ),
-//                 const SizedBox(height: 10),
-//                 const TextField(
-//                   obscureText: true,
-//                   decoration: InputDecoration(
-//                     labelText: 'Password',
-//                     prefixIcon: Icon(Icons.lock),
-//                     border: OutlineInputBorder(),
-//                   ),
-//                 ),
-//                 const SizedBox(height: 10),
-//                 const TextField(
-//                   obscureText: true,
-//                   decoration: InputDecoration(
-//                     labelText: 'Confirm Password',
-//                     prefixIcon: Icon(Icons.lock),
-//                     border: OutlineInputBorder(),
-//                   ),
-//                 ),
-//                 const SizedBox(height: 20),
-//                 ElevatedButton(
-//                   onPressed: () {
-//                     // Navigate to the VerificationScreen when the button is pressed
-//                     Navigator.push(
-//                       context,
-//                       MaterialPageRoute(builder: (context) => const VerificationScreen()),
-//                     );
-//                   },
-//                   style: ElevatedButton.styleFrom(
-//                     backgroundColor: Colors.green,
-//                     minimumSize: const Size(double.infinity, 50),
-//                   ),
-//                   child: const Text('Sign Up'),
-//                 ),
-//               ],
-//             ),
-
-//             // Footer content
-//             Padding(
-//               padding: const EdgeInsets.only(bottom: 10),
-//               child: Column(
-//                 children: [
-//                   const Text(
-//                     'By signing up, you agree to our Terms & Conditions',
-//                     style: TextStyle(color: Colors.grey),
-//                   ),
-//                   const SizedBox(height: 10),
-//                   GestureDetector(
-//                     onTap: () {
-//                       // Handle privacy policy tap
-//                     },
-//                     child: const Text(
-//                       'Privacy Policy',
-//                       style: TextStyle(
-//                         decoration: TextDecoration.underline,
-//                         color: Colors.blue,
-//                       ),
-//                     ),
-//                   ),
-//                 ],
-//               ),
-//             ),
-//           ],
-//         ),
-//       ),
-//     );
-//   }
-// }
 
 
 class TickAnimation extends StatefulWidget {

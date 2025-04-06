@@ -1,4 +1,4 @@
-package com.example.flutterprojects
+package com.example.geoat_back
 
 import io.flutter.embedding.android.FlutterActivity
 import android.os.Bundle

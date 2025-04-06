@@ -1,5 +1,5 @@
 import 'package:flutter/material.dart';
-import 'SigninScreen.dart';
+import 'package:geoat_back/main.dart';
 
 
 class ProfileScreen extends StatefulWidget {
@@ -472,7 +472,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
       // Navigate back to the ProfileScreen
       Navigator.of(context).pushReplacement(MaterialPageRoute(
-        builder: (context) => const SignInScreen(),
+        builder: (context) => const LoginPage(),
       ));
     });
   }
