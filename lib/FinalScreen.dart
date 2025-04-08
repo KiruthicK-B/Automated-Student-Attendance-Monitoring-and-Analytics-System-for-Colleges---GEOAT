@@ -1,28 +1,45 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:geolocator/geolocator.dart';
+import 'package:intl/intl.dart';
 
 class FinalScreen extends StatefulWidget {
-  const FinalScreen({super.key});
+  final String email;
+  const FinalScreen({super.key, required this.email});
 
   @override
-  // ignore: library_private_types_in_public_api
   _FinalScreenState createState() => _FinalScreenState();
 }
 
 class _FinalScreenState extends State<FinalScreen> {
-  int seconds = 0; // Total active time in seconds
-  int breakSeconds = 0; // Break time in seconds
+  int seconds = 0;
+  int breakSeconds = 0;
   Timer? timer;
-  bool isActive = false; // For tracking work session
-  bool isBreak = false; // For tracking break session
+  bool isBreak = false;
   bool isCheckedOut = false;
   bool isBreakTimeLimitExceeded = false;
+  static const int breakTimeLimit = 600;
 
-  static const int breakTimeLimit = 600; // Limit for break time in seconds
+  String userName = '';
+  String userLocation = 'Fetching...';
+  DateTime? checkInTime;
+  DateTime? checkOutTime;
 
-  // Start timer
+  @override
+  void initState() {
+    super.initState();
+    initializeData();
+  }
+
+  Future<void> initializeData() async {
+    await fetchUserName();
+    await getCurrentLocation();
+    checkInTime = DateTime.now();
+    startTimer();
+  }
+
   void startTimer() {
-    isActive = true;
     timer = Timer.periodic(const Duration(seconds: 1), (Timer t) {
       setState(() {
         if (isBreak) {
@@ -37,100 +54,95 @@ class _FinalScreenState extends State<FinalScreen> {
     });
   }
 
-  // Pause the timer (mark it as break)
-  void pauseTimer() {
-    setState(() {
-      isBreak = true;
-    });
-  }
-
-  // Resume the timer (exit break mode)
-  void resumeTimer() {
-    setState(() {
-      isBreak = false;
-    });
-  }
-
-  // Stop the timer on checkout
   void stopTimer() {
     timer?.cancel();
-    isActive = false;
   }
 
-  // Automatically check out after break limit exceeds
+  void pauseTimer() => setState(() => isBreak = true);
+  void resumeTimer() => setState(() => isBreak = false);
+
   void _autoCheckout() {
     stopTimer();
     setState(() {
       isBreakTimeLimitExceeded = true;
       isCheckedOut = true;
     });
-  }
-
-  // Checkout manually
-  void checkOut() {
-    stopTimer();
-    showDialog(
-      context: context,
-      barrierDismissible: false,
-      builder: (BuildContext context) {
-        return const AlertDialog(
-          content: Row(
-            children: [
-              CircularProgressIndicator(),
-              SizedBox(width: 20),
-              Text("Checking Out..."),
-            ],
-          ),
-        );
-      },
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(content: Text('Break time exceeded. Auto checked-out!')),
     );
-
-    Future.delayed(const Duration(seconds: 3), () {
-      Navigator.pop(context);
-      setState(() {
-        isCheckedOut = true;
-      });
-    });
   }
 
-  // Format time into hours, minutes, seconds
+  Future<void> fetchUserName() async {
+    try {
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('userdetails')
+          .where('email', isEqualTo: widget.email)
+          .limit(1)
+          .get();
+
+      if (querySnapshot.docs.isNotEmpty) {
+        setState(() {
+          userName = querySnapshot.docs.first['name'] ?? '';
+        });
+      } else {
+        setState(() {
+          userName = 'Unknown User';
+        });
+      }
+    } catch (e) {
+      setState(() => userName = 'Error fetching name');
+      debugPrint("Error fetching username: $e");
+    }
+  }
+
+  Future<void> getCurrentLocation() async {
+    try {
+      final permission = await Geolocator.requestPermission();
+      if (permission == LocationPermission.denied || permission == LocationPermission.deniedForever) {
+        setState(() => userLocation = "Location permission denied");
+        return;
+      }
+
+      final position = await Geolocator.getCurrentPosition(desiredAccuracy: LocationAccuracy.high);
+      setState(() {
+        userLocation = "Lat: ${position.latitude}, Long: ${position.longitude}";
+      });
+    } catch (e) {
+      setState(() => userLocation = "Failed to get location");
+      debugPrint("Error getting location: $e");
+    }
+  }
+
   String formatTime(int totalSeconds) {
-    int hours = totalSeconds ~/ 3600;
-    int minutes = (totalSeconds % 3600) ~/ 60;
-    int secs = totalSeconds % 60;
+    final hours = totalSeconds ~/ 3600;
+    final minutes = (totalSeconds % 3600) ~/ 60;
+    final secs = totalSeconds % 60;
     return "${hours.toString().padLeft(2, '0')}hrs:${minutes.toString().padLeft(2, '0')}mins:${secs.toString().padLeft(2, '0')}s";
   }
 
-  // Build a real-time bar chart in horizontal format
   Widget buildHorizontalBarChart() {
     final Map<String, int> data = {
       'Work': seconds,
       'Break': breakSeconds,
-      'Idle': 3600 - (seconds + breakSeconds), // Example total time
+      'Idle': (3600 - (seconds + breakSeconds)).clamp(0, 3600),
     };
-    final int maxTime = data.values.reduce((a, b) => a > b ? a : b);
+    final maxTime = data.values.reduce((a, b) => a > b ? a : b);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: data.entries.map((entry) {
-        final double barWidth = (entry.value / maxTime) * 200; // Scale for width
+        final barWidth = (entry.value / maxTime) * 200;
         return Padding(
           padding: const EdgeInsets.symmetric(vertical: 5),
           child: Row(
-            crossAxisAlignment: CrossAxisAlignment.center,
             children: [
-              Text("${entry.key} (${formatTime(entry.value)})",
-                  style: const TextStyle(fontWeight: FontWeight.bold)),
+              Text("${entry.key} (${formatTime(entry.value)})"),
               const SizedBox(width: 10),
               Container(
                 height: 20,
                 width: barWidth,
                 decoration: BoxDecoration(
-                  color: entry.key == 'Work'
-                      ? Colors.green
-                      : entry.key == 'Break'
-                          ? Colors.orange
-                          : Colors.grey,
+                  color: entry.key == 'Work' ? Colors.green : entry.key == 'Break' ? Colors.orange : Colors.grey,
                   borderRadius: BorderRadius.circular(5),
                 ),
               ),
@@ -141,10 +153,63 @@ class _FinalScreenState extends State<FinalScreen> {
     );
   }
 
-  @override
-  void initState() {
-    super.initState();
-    startTimer();
+  Future<void> checkOut() async {
+    stopTimer();
+    checkOutTime = DateTime.now();
+
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => const AlertDialog(
+        content: Row(
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 20),
+            Text("Saving data..."),
+          ],
+        ),
+      ),
+    );
+
+    try {
+      final data = {
+        'email': widget.email,
+        'name': userName,
+        'date': DateFormat('yyyy-MM-dd').format(DateTime.now()),
+        'fromTime': DateFormat('HH:mm:ss').format(checkInTime!),
+        'toTime': DateFormat('HH:mm:ss').format(checkOutTime!),
+        'activeTime': formatTime(seconds),
+        'breakTime': formatTime(breakSeconds),
+        'location': userLocation,
+      };
+
+      final safeUserCollection = userName.replaceAll(" ", "").isEmpty ? "UnknownUser" : userName.replaceAll(" ", "");
+      final userCollection = FirebaseFirestore.instance.collection(safeUserCollection);
+
+      await userCollection.add(data);
+      Navigator.pop(context); // Close saving dialog
+
+      setState(() {
+        isCheckedOut = true;
+      });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+  content: Text(
+    "Check-out successful!",
+    style: TextStyle(color: Colors.white), // text color
+  ),
+  backgroundColor: Colors.green, // green background
+)
+
+      );
+    } catch (e) {
+      Navigator.pop(context); // Close saving dialog even on failure
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Failed to check out: $e")),
+      );
+      debugPrint("Check-out error: $e");
+    }
   }
 
   @override
@@ -167,28 +232,21 @@ class _FinalScreenState extends State<FinalScreen> {
         child: SingleChildScrollView(
           child: Column(
             children: [
-              // Profile and Location Details
               const CircleAvatar(
                 radius: 50,
                 backgroundImage: AssetImage('assets/profile.jpeg'),
               ),
               const SizedBox(height: 20),
-              const Text(
-                'Kiruthick B',
-                style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
-              ),
+              Text(userName, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
               const SizedBox(height: 10),
-              const Text('Location: Lat: 11.7321, Long: 78.0489'),
-              const Text('Region: Salem, Tamil Nadu, India'),
+              Text('Location: $userLocation'),
               const SizedBox(height: 10),
 
-              // Active and Break Times
               Text('Active Time: ${formatTime(seconds)}'),
               const SizedBox(height: 10),
               Text('Break Time: ${formatTime(breakSeconds)}'),
               const SizedBox(height: 10),
 
-              // Active Status Indicator
               const Text('Active Status:'),
               Icon(
                 isCheckedOut ? Icons.cancel : Icons.check_circle,
@@ -197,83 +255,38 @@ class _FinalScreenState extends State<FinalScreen> {
               ),
               const SizedBox(height: 20),
 
-              // Action Buttons
               if (!isCheckedOut && !isBreakTimeLimitExceeded)
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     ElevatedButton(
                       onPressed: isBreak ? resumeTimer : pauseTimer,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.orange,
-                        padding: const EdgeInsets.symmetric(
-                            vertical: 12.0, horizontal: 35.0),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30.0),
-                        ),
-                      ),
-                      child: Text(isBreak ? 'Resume' : 'Pause',
-                          style: const TextStyle(fontSize: 18)),
+                      style: ElevatedButton.styleFrom(backgroundColor: Colors.orange),
+                      child: Text(isBreak ? 'Resume' : 'Pause'),
                     ),
                     const SizedBox(width: 20),
                     ElevatedButton(
                       onPressed: checkOut,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: const Color(0xFF6AB547),
-                        padding: const EdgeInsets.symmetric(
-                            vertical: 12.0, horizontal: 35.0),
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(30.0),
-                        ),
-                      ),
-                      child: const Text('Check Out', style: TextStyle(fontSize: 18)),
+                      style: ElevatedButton.styleFrom(backgroundColor: const Color(0xFF6AB547)),
+                      child: const Text('Check Out'),
                     ),
                   ],
                 ),
 
-              // Auto-Checkout or Checked-Out Message
-              if (isBreakTimeLimitExceeded)
-                const Text(
-                  "Break Time Limit Exceeded. You've been automatically checked out.",
-                  style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold),
-                  textAlign: TextAlign.center,
-                ),
               if (isCheckedOut)
                 ElevatedButton(
                   onPressed: () => Navigator.pop(context),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green,
-                    padding: const EdgeInsets.symmetric(
-                        vertical: 12.0, horizontal: 50.0),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(30.0),
-                    ),
-                  ),
-                  child: const Text('Back to Home', style: TextStyle(fontSize: 18)),
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+                  child: const Text('Back to Home'),
                 ),
-              const SizedBox(height: 20),
 
-              // Inspirational Message
-              const Text(
-                "Great things are done by taking small steps every day. Let’s make today count!",
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 14, color: Colors.grey),
-              ),
               const SizedBox(height: 30),
-
-              // Activity Summary Section
-              const Text(
-                "Activity Summary",
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
+              const Text("Activity Summary", style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
               const SizedBox(height: 10),
 
-              // Horizontal Bar Chart with Overflow Handling
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
                 child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     buildHorizontalBarChart(),
                     const SizedBox(width: 10),
@@ -282,16 +295,12 @@ class _FinalScreenState extends State<FinalScreen> {
                       children: [
                         Text('Work: ${formatTime(seconds)}'),
                         Text('Break: ${formatTime(breakSeconds)}'),
-                        Text(
-                          'Idle: ${formatTime(3600 - (seconds + breakSeconds))}',
-                          style: const TextStyle(color: Colors.grey),
-                        ),
+                        Text('Idle: ${formatTime((3600 - (seconds + breakSeconds)).clamp(0, 3600))}'),
                       ],
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 20),
             ],
           ),
         ),

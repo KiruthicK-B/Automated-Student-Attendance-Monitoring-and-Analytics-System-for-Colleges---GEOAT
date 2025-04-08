@@ -4,6 +4,7 @@ import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
+import 'package:geoat_back/FinalScreen.dart';
 import 'package:geoat_back/main.dart';
 import 'ProfileScreen.dart';
 import 'RecordScreen.dart';
@@ -11,7 +12,6 @@ import 'myactivity.dart';
 import 'task.dart';
 import 'package:geolocator/geolocator.dart';
 //import 'final_screen.dart';
-
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -26,9 +26,7 @@ class MyApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return MaterialApp(
       home: const TickAnimation(message: 'Welcome!'),
-      theme: ThemeData(
-        primarySwatch: Colors.green,
-      ),
+      theme: ThemeData(primarySwatch: Colors.green),
     );
   }
 }
@@ -36,8 +34,6 @@ class MyApp extends StatelessWidget {
 class HomeScreen extends StatefulWidget {
   final String userName;
   final String userEmail;
- 
-
 
   const HomeScreen({
     super.key,
@@ -47,9 +43,7 @@ class HomeScreen extends StatefulWidget {
 
   @override
   _HomeScreenState createState() => _HomeScreenState();
-  
 }
-
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
@@ -61,31 +55,26 @@ class _HomeScreenState extends State<HomeScreen> {
   String userName = "Kiruthick B";
   List<String> tasks = ["Complete project report", "Team meeting at 2 PM"];
   int pendingTasks = 2;
-late String userEmail;
+  late String userEmail;
 
   late List<Widget> _pages;
- late String loginEmail;
+  late String loginEmail;
   @override
   void initState() {
-    
     super.initState();
     userEmail = widget.userEmail.trim();
 
-     loginEmail = widget.userEmail.trim();
+    loginEmail = widget.userEmail.trim();
     print("✅ HomeScreen received email: $loginEmail");
-      print("✅ HomeScreen received email: ${widget.userEmail}");
+    print("✅ HomeScreen received email: ${widget.userEmail}");
     _pages = [
-      HomeContent(
-        userName: widget.userName,
-        userEmail: userEmail,
-      ),
-      const RecordScreen(),
+      HomeContent(userName: widget.userName, userEmail: userEmail),
+      RecordScreen(userName: widget.userName, userEmail: userEmail),
       const Placeholder(),
       const ProfileScreen(),
       const ProfileEditScreen(),
     ];
   }
-
 
   void _onTabTapped(int index) {
     setState(() {
@@ -104,10 +93,7 @@ late String userEmail;
       String question = _chatController.text;
       String answer = _getChatbotResponse(question);
       setState(() {
-        _chatHistory.add({
-          'question': question,
-          'answer': answer,
-        });
+        _chatHistory.add({'question': question, 'answer': answer});
         _chatController.clear();
       });
     }
@@ -115,12 +101,14 @@ late String userEmail;
 
   String _getChatbotResponse(String question) {
     try {
-      question = question
-          .toLowerCase(); // Convert question to lowercase for easier matching
+      question =
+          question
+              .toLowerCase(); // Convert question to lowercase for easier matching
 
       if (question.contains("date")) {
-        return DateFormat.yMMMMd()
-            .format(DateTime.now()); // Returns current date
+        return DateFormat.yMMMMd().format(
+          DateTime.now(),
+        ); // Returns current date
       } else if (question.contains("time")) {
         return DateFormat.jm().format(DateTime.now()); // Returns current time
       } else if (question.contains("location")) {
@@ -152,84 +140,87 @@ late String userEmail;
       return "An error occurred while processing your request. Please try again.";
     }
   }
-    @override
-    Widget build(BuildContext context) {
-      return Scaffold(
-        backgroundColor: Colors.white,
-        appBar: AppBar(
-          backgroundColor: const Color(0xFF6AB547),
-          elevation: 0,
-      toolbarHeight: 120,
-      automaticallyImplyLeading: false,  // This removes the back arrow
-      flexibleSpace: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16.0),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                // Current location and date/time details
-                Row(
-                  children: const [
-                    Icon(Icons.location_on, color: Colors.white),
-                    SizedBox(width: 8),
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          "Chennai, India",
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 18,
-                            fontWeight: FontWeight.bold,
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.white,
+      appBar: AppBar(
+        backgroundColor: const Color(0xFF6AB547),
+        elevation: 0,
+        toolbarHeight: 120,
+        automaticallyImplyLeading: false, // This removes the back arrow
+        flexibleSpace: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 16.0),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  // Current location and date/time details
+                  Row(
+                    children: const [
+                      Icon(Icons.location_on, color: Colors.white),
+                      SizedBox(width: 8),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            "Chennai, India",
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 18,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
-                        ),
-                        Text(
-                          "Thu, 11 Oct 2024 - 10:30 AM", // Add dynamic date and time if needed
-                          style: TextStyle(
-                            color: Colors.white70,
-                            fontSize: 12,
+                          Text(
+                            "Thu, 11 Oct 2024 - 10:30 AM", // Add dynamic date and time if needed
+                            style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                            ),
                           ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  // Weather and notification icon
+                  Row(
+                    children: [
+                      Column(
+                        children: const [
+                          Icon(
+                            Icons.wb_sunny,
+                            color: Colors.yellow,
+                            size: 24,
+                          ), // Weather icon
+                          Text("28°C", style: TextStyle(color: Colors.white)),
+                        ],
+                      ),
+                      const SizedBox(width: 16),
+                      IconButton(
+                        onPressed: () {},
+                        icon: const Icon(
+                          Icons.notifications,
+                          color: Colors.white,
                         ),
-                      ],
-                    ),
-                  ],
-                ),
-                // Weather and notification icon
-                Row(
-                  children: [
-                    Column(
-                      children: const [
-                        Icon(Icons.wb_sunny,
-                            color: Colors.yellow, size: 24), // Weather icon
-                        Text(
-                          "28°C",
-                          style: TextStyle(color: Colors.white),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(width: 16),
-                    IconButton(
-                      onPressed: () {},
-                      icon: const Icon(Icons.notifications,
-                          color: Colors.white),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-            const SizedBox(height: 10),
-          ],
+                      ),
+                    ],
+                  ),
+                ],
+              ),
+              const SizedBox(height: 10),
+            ],
+          ),
+        ),
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.only(
+            bottomLeft: Radius.circular(10), // Reduced border radius
+            bottomRight: Radius.circular(10), // Reduced border radius
+          ),
         ),
       ),
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(10), // Reduced border radius
-          bottomRight: Radius.circular(10), // Reduced border radius
-        ),
-      ),
-    ),
       body: Stack(
         children: [
           _pages[_currentIndex],
@@ -255,34 +246,39 @@ late String userEmail;
                       },
                     ),
                     Row(
-                          children: [
-                            Expanded(
-                              child: TextField(
-                                controller: _chatController,
-                                decoration: const InputDecoration(
-                                  hintText: 'Ask a question...',
-                                  border: OutlineInputBorder(),
-                                ),
-                              ),
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _chatController,
+                            decoration: const InputDecoration(
+                              hintText: 'Ask a question...',
+                              border: OutlineInputBorder(),
                             ),
-                          ],
+                          ),
                         ),
+                      ],
+                    ),
 
-                        // Add a new row for the button and center it
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            TextButton(
-                              onPressed: _sendMessage,
-                              style: TextButton.styleFrom(
-                                foregroundColor: Colors.white, backgroundColor: const Color(0xFF6AB547), // Text color
-                                padding: const EdgeInsets.symmetric(horizontal: 24.0, vertical: 10.0), // Adjust padding as needed
-                              ),
-                              child: const Text('Send'),
-                            ),
-                          ],
+                    // Add a new row for the button and center it
+                    Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        TextButton(
+                          onPressed: _sendMessage,
+                          style: TextButton.styleFrom(
+                            foregroundColor: Colors.white,
+                            backgroundColor: const Color(
+                              0xFF6AB547,
+                            ), // Text color
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 24.0,
+                              vertical: 10.0,
+                            ), // Adjust padding as needed
+                          ),
+                          child: const Text('Send'),
                         ),
-
+                      ],
+                    ),
                   ],
                 ),
               ),
@@ -290,8 +286,8 @@ late String userEmail;
         ],
       ),
       floatingActionButton: FloatingActionButton(
-         onPressed: _toggleChatbot,
-         child: const Icon(Icons.smart_toy),
+        onPressed: _toggleChatbot,
+        child: const Icon(Icons.smart_toy),
       ),
       bottomNavigationBar: BottomNavigationBar(
         selectedItemColor: const Color(0xFF6AB547),
@@ -299,22 +295,13 @@ late String userEmail;
         currentIndex: _currentIndex,
         onTap: _onTabTapped,
         items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.home),
-            label: 'Home',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.home), label: 'Home'),
           BottomNavigationBarItem(
             icon: Icon(Icons.calendar_today),
             label: 'Record',
           ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.map),
-            label: 'Map',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.person),
-            label: 'Profile',
-          ),
+          BottomNavigationBarItem(icon: Icon(Icons.map), label: 'Map'),
+          BottomNavigationBarItem(icon: Icon(Icons.person), label: 'Profile'),
         ],
       ),
     );
@@ -355,8 +342,8 @@ class HomeContent extends StatefulWidget {
     required this.userName,
     required this.userEmail,
   });
-  
-  get loginEmail =>userEmail;
+
+  get loginEmail => userEmail;
 
   @override
   // ignore: library_private_types_in_public_api
@@ -365,7 +352,6 @@ class HomeContent extends StatefulWidget {
 
 class _HomeContentState extends State<HomeContent> {
   List<Map<String, String>> tasks = [];
-  
 
   // Callback function to add a new task
   void addNewTask(Map<String, String> task) {
@@ -404,8 +390,9 @@ class _HomeContentState extends State<HomeContent> {
             Center(
               child: CircleAvatar(
                 radius: 50,
-                backgroundImage:
-                    const AssetImage('assets/profile.jpeg'), // Add profile image
+                backgroundImage: const AssetImage(
+                  'assets/profile.jpeg',
+                ), // Add profile image
                 backgroundColor: Colors.grey.shade300,
               ),
             ),
@@ -413,252 +400,275 @@ class _HomeContentState extends State<HomeContent> {
 
             // Task prompt
             const Text(
-  "Today’s Tasks",
-  style: TextStyle(
-    fontSize: 18,
-    fontWeight: FontWeight.w600,
-    color: Colors.black,
-  ),
-),
-const SizedBox(height: 10),
-
-// Displaying tasks or a message if there are no tasks
-tasks.isEmpty
-    ? SingleChildScrollView(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(16),
-              decoration: BoxDecoration(
-                color: const Color(0xFFEFEFEF),
-                borderRadius: BorderRadius.circular(10),
+              "Today’s Tasks",
+              style: TextStyle(
+                fontSize: 18,
+                fontWeight: FontWeight.w600,
+                color: Colors.black,
               ),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  const Expanded(
-                    child: Text(
-                      "You have no pending tasks. Great job staying up-to-date!",
-                      style: TextStyle(color: Colors.black),
-                    ),
+            ),
+            const SizedBox(height: 10),
+
+            // Displaying tasks or a message if there are no tasks
+            tasks.isEmpty
+                ? SingleChildScrollView(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(16),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFFEFEFEF),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          children: [
+                            const Expanded(
+                              child: Text(
+                                "You have no pending tasks. Great job staying up-to-date!",
+                                style: TextStyle(color: Colors.black),
+                              ),
+                            ),
+                            Align(
+                              alignment:
+                                  Alignment
+                                      .center, // Align to center vertically
+                              child: ElevatedButton(
+                                onPressed: () {
+                                  // Navigate to AddTaskPage
+                                  Navigator.push(
+                                    context,
+                                    MaterialPageRoute(
+                                      builder:
+                                          (context) => AddTaskPage(
+                                            onTaskAdded: addNewTask,
+                                          ),
+                                    ),
+                                  );
+                                },
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: Colors.green,
+                                  padding: const EdgeInsets.all(10),
+                                  shape: const CircleBorder(),
+                                ),
+                                child: const Icon(
+                                  Icons.add,
+                                  size: 24,
+                                  color: Colors.white,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 20),
+                    ],
                   ),
-                  Align(
-                    alignment: Alignment.center, // Align to center vertically
-                    child: ElevatedButton(
-                      onPressed: () {
-                        // Navigate to AddTaskPage
-                        Navigator.push(
-                          context,
-                          MaterialPageRoute(
-                            builder: (context) => AddTaskPage(
-                              onTaskAdded: addNewTask,
+                )
+                : Column(
+                  children: [
+                    const SizedBox(height: 10),
+                    ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      itemCount: tasks.length,
+                      itemBuilder: (context, index) {
+                        return Dismissible(
+                          key: Key(tasks[index]['title']!),
+                          direction: DismissDirection.endToStart,
+                          background: Container(
+                            color: Colors.red,
+                            alignment: Alignment.centerRight,
+                            padding: const EdgeInsets.symmetric(horizontal: 20),
+                            child: const Icon(
+                              Icons.delete,
+                              color: Colors.white,
+                            ),
+                          ),
+                          onDismissed: (direction) {
+                            deleteTask(index);
+                          },
+                          child: Card(
+                            elevation: 3,
+                            child: ListTile(
+                              title: Text(tasks[index]['title']!),
+                              subtitle: Text(
+                                "${tasks[index]['deadline']} - Priority: ${tasks[index]['priority']}",
+                              ),
+                              trailing: Row(
+                                mainAxisSize:
+                                    MainAxisSize
+                                        .min, // To make the row as small as possible
+                                children: [
+                                  // Add task button (+ symbol)
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.add,
+                                      color: Colors.green,
+                                    ),
+                                    onPressed: () {
+                                      // Handle task addition
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder:
+                                              (context) => AddTaskPage(
+                                                onTaskAdded: addNewTask,
+                                              ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                  // Delete task button
+                                  IconButton(
+                                    icon: const Icon(
+                                      Icons.delete,
+                                      color: Colors.red,
+                                    ),
+                                    onPressed: () {
+                                      deleteTask(index);
+                                    },
+                                  ),
+                                ],
+                              ),
                             ),
                           ),
                         );
                       },
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: Colors.green,
-                        padding: const EdgeInsets.all(10),
-                        shape: const CircleBorder(),
-                      ),
-                      child: const Icon(Icons.add,
-                          size: 24, color: Colors.white),
                     ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 20),
-          ],
-        ),
-      ):
-Column(
-  children: [
-    const SizedBox(height: 10),
-    ListView.builder(
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      itemCount: tasks.length,
-      itemBuilder: (context, index) {
-        return Dismissible(
-          key: Key(tasks[index]['title']!),
-          direction: DismissDirection.endToStart,
-          background: Container(
-            color: Colors.red,
-            alignment: Alignment.centerRight,
-            padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: const Icon(Icons.delete, color: Colors.white),
-          ),
-          onDismissed: (direction) {
-            deleteTask(index);
-          },
-          child: Card(
-            elevation: 3,
-            child: ListTile(
-              title: Text(tasks[index]['title']!),
-              subtitle: Text(
-                "${tasks[index]['deadline']} - Priority: ${tasks[index]['priority']}",
-              ),
-              trailing: Row(
-                mainAxisSize: MainAxisSize.min, // To make the row as small as possible
-                children: [
-                  // Add task button (+ symbol)
-                  IconButton(
-                    icon: const Icon(Icons.add, color: Colors.green),
-                    onPressed: () {
-                      // Handle task addition
-                      Navigator.push(
-                        context,
+                  ],
+                ),
+            const SizedBox(height: 20), // Check-in button
+            Center(
+              child: ElevatedButton(
+                onPressed: () async {
+                  try {
+                    final loginEmail = widget.userEmail;
+                    print(
+                      "📩 Email used for Firestore query: ${widget.userEmail}",
+                    );
+
+                    if (loginEmail.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('❗ Email is empty.')),
+                      );
+                      return;
+                    }
+
+                    final userDoc =
+                        await FirebaseFirestore.instance
+                            .collection('userdetails')
+                            .where('email', isEqualTo: loginEmail)
+                            .limit(1)
+                            .get();
+
+                    if (userDoc.docs.isNotEmpty) {
+                      final userData = userDoc.docs.first.data();
+                      final userEmail = userData['email'];
+
+                      print("✅ Firestore document found: $userEmail");
+
+                      Navigator.of(context).push(
                         MaterialPageRoute(
-                          builder: (context) => AddTaskPage(
-                            onTaskAdded: addNewTask,
+                          builder: (context) => const LoadingScreen(),
+                          settings: RouteSettings(
+                            arguments: {'email': userEmail},
                           ),
                         ),
                       );
-                    },
+                    } else {
+                      print("❌ No matching document found.");
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Text('❌ User email not found in Firestore.'),
+                        ),
+                      );
+                    }
+                  } catch (e) {
+                    print("🔥 ERROR during Firestore query: $e");
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('An error occurred: $e')),
+                    );
+                  }
+                },
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: const Color(0xFF6AB547),
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 12.0,
+                    horizontal: 50.0,
                   ),
-                  // Delete task button
-                  IconButton(
-                    icon: const Icon(Icons.delete, color: Colors.red),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(30.0),
+                  ),
+                ),
+                child: const Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(
+                      'Check In',
+                      style: TextStyle(
+                        fontSize: 20,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                    SizedBox(width: 10),
+                    Icon(Icons.arrow_forward, size: 24, color: Colors.white),
+                  ],
+                ),
+              ),
+            ),
+
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+              children: [
+                SizedBox(
+                  width: 150,
+                  height: 50,
+                  child: ElevatedButton(
                     onPressed: () {
-                      deleteTask(index);
+                      Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (context) => HomePage()),
+                      );
                     },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.blue,
+                    ),
+                    child: const Text(
+                      'My Activity',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
-                ],
-              ),
+                ),
+                SizedBox(
+                  width: 150,
+                  height: 50,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      // Add navigation code to Get Permission page here
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.red,
+                    ),
+                    child: const Text(
+                      'Need help?',
+                      style: TextStyle(
+                        fontSize: 16,
+                        fontWeight: FontWeight.bold,
+                        color: Colors.white,
+                      ),
+                    ),
+                  ),
+                ),
+              ],
             ),
-          ),
-        );
-      },
-    ),
-  ],
-),
-const SizedBox(height: 20),    // Check-in button
-Center(
-  child: ElevatedButton(
-    onPressed: () async {
-      try {
-         final loginEmail = widget.userEmail;
-        print("📩 Email used for Firestore query: ${widget.userEmail}");
-
-        if (loginEmail.isEmpty) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('❗ Email is empty.')),
-          );
-          return;
-        }
-
-        final userDoc = await FirebaseFirestore.instance
-            .collection('userdetails')
-            .where('email', isEqualTo: loginEmail)
-            .limit(1)
-            .get();
-
-        if (userDoc.docs.isNotEmpty) {
-          final userData = userDoc.docs.first.data();
-          final userEmail = userData['email'];
-
-          print("✅ Firestore document found: $userEmail");
-
-          Navigator.of(context).push(
-            MaterialPageRoute(
-              builder: (context) => const LoadingScreen(),
-              settings: RouteSettings(
-                arguments: {'email': userEmail},
-              ),
-            ),
-          );
-        } else {
-          print("❌ No matching document found.");
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('❌ User email not found in Firestore.')),
-          );
-        }
-      } catch (e) {
-        print("🔥 ERROR during Firestore query: $e");
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('An error occurred: $e')),
-        );
-      }
-    },
-    style: ElevatedButton.styleFrom(
-      backgroundColor: const Color(0xFF6AB547),
-      padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 50.0),
-      shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(30.0),
-      ),
-    ),
-    child: const Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text(
-          'Check In',
-          style: TextStyle(
-            fontSize: 20,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        ),
-        SizedBox(width: 10),
-        Icon(Icons.arrow_forward, size: 24, color: Colors.white),
-      ],
-    ),
-  ),
-),
-
-
-
-            const SizedBox(height: 20), 
-    Row(
-  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-  children: [
-    SizedBox(
-      width: 150,
-      height: 50,
-      child: ElevatedButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (context) => HomePage()),
-          );
-        },
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.blue,
-        ),
-        child: const Text(
-          'My Activity',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        ),
-      ),
-    ),
-    SizedBox(
-      width: 150,
-      height: 50,
-      child: ElevatedButton(
-        onPressed: () {
-          // Add navigation code to Get Permission page here
-        },
-        style: ElevatedButton.styleFrom(
-          backgroundColor: Colors.red,
-        ),
-        child: const Text(
-          'Need help?',
-          style: TextStyle(
-            fontSize: 16,
-            fontWeight: FontWeight.bold,
-            color: Colors.white,
-          ),
-        ),
-      ),
-    ),
-  ],
-),
-
 
             const SizedBox(height: 10),
             const Center(
@@ -674,8 +684,10 @@ Center(
     );
   }
 }
+
 // ignore: non_constant_identifier_names
 DateFormat(String s) {}
+
 class LoadingScreen extends StatefulWidget {
   const LoadingScreen({super.key});
 
@@ -687,28 +699,35 @@ class _LoadingScreenState extends State<LoadingScreen> {
   String userEmail = "";
 
   @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-
-   final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
-
-
-    if (args != null ) {
-      final email = args['email'];
-      if (email != null && email is String && email.isNotEmpty) {
-        userEmail = email;
-        verifyLocation();
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final args =
+          ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+      if (args != null && args.containsKey('email')) {
+        userEmail = args['email'];
+        verifyLocation(); // Start location verification
       } else {
-        showErrorAndReturn("Invalid email argument.");
+        showErrorAndGoBack("No email argument provided.");
       }
-    } else {
-      showErrorAndReturn("No arguments were passed to this screen.");
-    }
+    });
   }
 
   Future<void> verifyLocation() async {
     try {
-      // Step 1: Get current location
+      // Request location permission if not granted
+      LocationPermission permission = await Geolocator.checkPermission();
+      if (permission == LocationPermission.denied ||
+          permission == LocationPermission.deniedForever) {
+        permission = await Geolocator.requestPermission();
+        if (permission == LocationPermission.denied ||
+            permission == LocationPermission.deniedForever) {
+          showErrorAndGoBack("Location permission is required.");
+          return;
+        }
+      }
+
+      // Get current location
       Position position = await Geolocator.getCurrentPosition(
         desiredAccuracy: LocationAccuracy.high,
       );
@@ -716,52 +735,77 @@ class _LoadingScreenState extends State<LoadingScreen> {
       double userLat = position.latitude;
       double userLng = position.longitude;
 
-      // Step 2: Fetch user’s location bounds from Firestore
-      final userDoc = await FirebaseFirestore.instance
-          .collection('userdetails')
-          .doc(userEmail)
-          .get();
+      print("📍 Current Location: Lat=$userLat, Lng=$userLng");
 
-      if (!userDoc.exists || !userDoc.data()!.containsKey('location')) {
-        showErrorAndReturn("Location details not found for this user.");
+      // Fetch user document by email
+      final querySnapshot =
+          await FirebaseFirestore.instance
+              .collection('userdetails')
+              .where('email', isEqualTo: userEmail)
+              .limit(1)
+              .get();
+
+      if (querySnapshot.docs.isEmpty) {
+        showErrorAndGoBack("User not found in Firestore.");
         return;
       }
 
-      final location = userDoc.data()!['location'];
-      double topLeftLat = location["topLeftLat"];
-      double topLeftLng = location["topLeftLng"];
-      double bottomRightLat = location["bottomRightLat"];
-      double bottomRightLng = location["bottomRightLng"];
+      final userData = querySnapshot.docs.first.data();
 
-      // Step 3: Check if current location is within bounds
-      bool isInside = userLat <= topLeftLat &&
-                      userLat >= bottomRightLat &&
-                      userLng >= topLeftLng &&
-                      userLng <= bottomRightLng;
+      // Check for required location fields
+      if (!userData.containsKey("topLeftLat") ||
+          !userData.containsKey("topLeftLng") ||
+          !userData.containsKey("bottomRightLat") ||
+          !userData.containsKey("bottomRightLng")) {
+        showErrorAndGoBack("Location details not found for this user.");
+        return;
+      }
+
+      double topLeftLat = userData["topLeftLat"];
+      double topLeftLng = userData["topLeftLng"];
+      double bottomRightLat = userData["bottomRightLat"];
+      double bottomRightLng = userData["bottomRightLng"];
+
+      print(
+        "📦 Firebase Bounds: Top Left($topLeftLat, $topLeftLng), Bottom Right($bottomRightLat, $bottomRightLng)",
+      );
+
+      // Location match check
+      bool isInside =
+          userLat <= topLeftLat &&
+          userLat >= bottomRightLat &&
+          userLng >= topLeftLng &&
+          userLng <= bottomRightLng;
 
       if (isInside) {
-        Navigator.pushReplacementNamed(context, '/nextpage');
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => FinalScreen(email: userEmail),
+          ),
+        );
       } else {
-        showErrorAndReturn("You're outside the allowed location boundary.");
+        showErrorAndGoBack("You're outside the allowed location boundary.");
       }
     } catch (e) {
-      showErrorAndReturn("Failed to verify location. Please try again.");
+      print("❌ Error verifying location: $e");
+      showErrorAndGoBack("Error verifying location: $e");
     }
   }
 
-  void showErrorAndReturn(String message) {
+  void showErrorAndGoBack(String message) {
+    if (!mounted) return;
+
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
         content: Text(message),
         backgroundColor: Colors.red,
+        duration: const Duration(seconds: 3),
       ),
     );
 
-    Future.delayed(const Duration(seconds: 2), () {
-      if (mounted) {
-        Navigator.pop(context);
-      }
-    });
+    // Pop screen immediately after showing the snackbar
+    Navigator.pop(context);
   }
 
   @override
