@@ -19,7 +19,7 @@ class MyApp extends StatelessWidget {
       routes: {
        // '/splash': (context) => const SplashScreen(),
         '/home': (context) =>
-            const HomeScreen(), // Route to the HomeScreen which contains the NavigationDrawer
+            const HomeScreen(userName: '', userEmail: '',), // Route to the HomeScreen which contains the NavigationDrawer
         '/addGroup': (context) => AddGroupFormScreen(),
       },
     );

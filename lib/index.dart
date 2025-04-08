@@ -1,16 +1,21 @@
 // ignore_for_file: prefer_const_constructors, sort_child_properties_last, use_build_context_synchronously, use_super_parameters
 //import 'package:permission_handler/permission_handler.dart';
 import 'dart:async';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
-import 'FinalScreen.dart';
+import 'package:geoat_back/main.dart';
 import 'ProfileScreen.dart';
 import 'RecordScreen.dart';
 import 'myactivity.dart';
 import 'task.dart';
+import 'package:geolocator/geolocator.dart';
 //import 'final_screen.dart';
 
 
-void main() {
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  await Firebase.initializeApp();
   runApp(const MyApp());
 }
 
@@ -20,7 +25,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      home: const HomeScreen(),
+      home: const TickAnimation(message: 'Welcome!'),
       theme: ThemeData(
         primarySwatch: Colors.green,
       ),
@@ -29,12 +34,22 @@ class MyApp extends StatelessWidget {
 }
 
 class HomeScreen extends StatefulWidget {
-  const HomeScreen({super.key});
+  final String userName;
+  final String userEmail;
+ 
+
+
+  const HomeScreen({
+    super.key,
+    required this.userName,
+    required this.userEmail,
+  });
 
   @override
-  // ignore: library_private_types_in_public_api
   _HomeScreenState createState() => _HomeScreenState();
+  
 }
+
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 0;
@@ -44,20 +59,33 @@ class _HomeScreenState extends State<HomeScreen> {
   String currentLocation = "Chennai, India";
   String currentTemperature = "28°C";
   String userName = "Kiruthick B";
-  String userEmail = "kiruthick@gmail.com";
   List<String> tasks = ["Complete project report", "Team meeting at 2 PM"];
   int pendingTasks = 2;
+late String userEmail;
 
-  // List of all the pages
-  final List<Widget> _pages = [
-    const HomeContent(
-        userName: 'Kiruthick B',
-        userEmail: 'kiruthick@gmail.com'), // Home content
-    const RecordScreen(), // Record screen
-    const Placeholder(), // Placeholder for Map screen
-    const ProfileScreen(), // Profile screen
-    const ProfileEditScreen(), // Profile edit screen
-  ];
+  late List<Widget> _pages;
+ late String loginEmail;
+  @override
+  void initState() {
+    
+    super.initState();
+    userEmail = widget.userEmail.trim();
+
+     loginEmail = widget.userEmail.trim();
+    print("✅ HomeScreen received email: $loginEmail");
+      print("✅ HomeScreen received email: ${widget.userEmail}");
+    _pages = [
+      HomeContent(
+        userName: widget.userName,
+        userEmail: userEmail,
+      ),
+      const RecordScreen(),
+      const Placeholder(),
+      const ProfileScreen(),
+      const ProfileEditScreen(),
+    ];
+  }
+
 
   void _onTabTapped(int index) {
     setState(() {
@@ -327,6 +355,8 @@ class HomeContent extends StatefulWidget {
     required this.userName,
     required this.userEmail,
   });
+  
+  get loginEmail =>userEmail;
 
   @override
   // ignore: library_private_types_in_public_api
@@ -335,6 +365,7 @@ class HomeContent extends StatefulWidget {
 
 class _HomeContentState extends State<HomeContent> {
   List<Map<String, String>> tasks = [];
+  
 
   // Callback function to add a new task
   void addNewTask(Map<String, String> task) {
@@ -503,51 +534,81 @@ Column(
     ),
   ],
 ),
-const SizedBox(height: 20),
+const SizedBox(height: 20),    // Check-in button
+Center(
+  child: ElevatedButton(
+    onPressed: () async {
+      try {
+         final loginEmail = widget.userEmail;
+        print("📩 Email used for Firestore query: ${widget.userEmail}");
 
-            // Check-in button
-            Center(
-              child: ElevatedButton(
-                onPressed: () {
-                  // Handle check-in process
-                  Navigator.of(context).push(
-                    MaterialPageRoute(
-                      builder: (context) => const LoadingScreen(),
-                    ),
-                  );
+        if (loginEmail.isEmpty) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('❗ Email is empty.')),
+          );
+          return;
+        }
 
-                  Future.delayed(const Duration(seconds: 3), () {
-                    Navigator.of(context).pushReplacement(
-                      MaterialPageRoute(
-                        builder: (context) => const FinalScreen(),
-                      ),
-                    );
-                  });
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF6AB547),
-                  padding: const EdgeInsets.symmetric(
-                      vertical: 12.0, horizontal: 50.0),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30.0),
-                  ),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      'Check In',
-                      style: TextStyle(
-                          fontSize: 20,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white),
-                    ),
-                    SizedBox(width: 10),
-                    Icon(Icons.arrow_forward, size: 24, color: Colors.white),
-                  ],
-                ),
+        final userDoc = await FirebaseFirestore.instance
+            .collection('userdetails')
+            .where('email', isEqualTo: loginEmail)
+            .limit(1)
+            .get();
+
+        if (userDoc.docs.isNotEmpty) {
+          final userData = userDoc.docs.first.data();
+          final userEmail = userData['email'];
+
+          print("✅ Firestore document found: $userEmail");
+
+          Navigator.of(context).push(
+            MaterialPageRoute(
+              builder: (context) => const LoadingScreen(),
+              settings: RouteSettings(
+                arguments: {'email': userEmail},
               ),
             ),
+          );
+        } else {
+          print("❌ No matching document found.");
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('❌ User email not found in Firestore.')),
+          );
+        }
+      } catch (e) {
+        print("🔥 ERROR during Firestore query: $e");
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('An error occurred: $e')),
+        );
+      }
+    },
+    style: ElevatedButton.styleFrom(
+      backgroundColor: const Color(0xFF6AB547),
+      padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 50.0),
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(30.0),
+      ),
+    ),
+    child: const Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(
+          'Check In',
+          style: TextStyle(
+            fontSize: 20,
+            fontWeight: FontWeight.bold,
+            color: Colors.white,
+          ),
+        ),
+        SizedBox(width: 10),
+        Icon(Icons.arrow_forward, size: 24, color: Colors.white),
+      ],
+    ),
+  ),
+),
+
+
+
             const SizedBox(height: 20), 
     Row(
   mainAxisAlignment: MainAxisAlignment.spaceEvenly,
@@ -615,10 +676,93 @@ const SizedBox(height: 20),
 }
 // ignore: non_constant_identifier_names
 DateFormat(String s) {}
-
-// Placeholder screens for other tabs
-class LoadingScreen extends StatelessWidget {
+class LoadingScreen extends StatefulWidget {
   const LoadingScreen({super.key});
+
+  @override
+  State<LoadingScreen> createState() => _LoadingScreenState();
+}
+
+class _LoadingScreenState extends State<LoadingScreen> {
+  String userEmail = "";
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+
+   final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+
+
+    if (args != null ) {
+      final email = args['email'];
+      if (email != null && email is String && email.isNotEmpty) {
+        userEmail = email;
+        verifyLocation();
+      } else {
+        showErrorAndReturn("Invalid email argument.");
+      }
+    } else {
+      showErrorAndReturn("No arguments were passed to this screen.");
+    }
+  }
+
+  Future<void> verifyLocation() async {
+    try {
+      // Step 1: Get current location
+      Position position = await Geolocator.getCurrentPosition(
+        desiredAccuracy: LocationAccuracy.high,
+      );
+
+      double userLat = position.latitude;
+      double userLng = position.longitude;
+
+      // Step 2: Fetch user’s location bounds from Firestore
+      final userDoc = await FirebaseFirestore.instance
+          .collection('userdetails')
+          .doc(userEmail)
+          .get();
+
+      if (!userDoc.exists || !userDoc.data()!.containsKey('location')) {
+        showErrorAndReturn("Location details not found for this user.");
+        return;
+      }
+
+      final location = userDoc.data()!['location'];
+      double topLeftLat = location["topLeftLat"];
+      double topLeftLng = location["topLeftLng"];
+      double bottomRightLat = location["bottomRightLat"];
+      double bottomRightLng = location["bottomRightLng"];
+
+      // Step 3: Check if current location is within bounds
+      bool isInside = userLat <= topLeftLat &&
+                      userLat >= bottomRightLat &&
+                      userLng >= topLeftLng &&
+                      userLng <= bottomRightLng;
+
+      if (isInside) {
+        Navigator.pushReplacementNamed(context, '/nextpage');
+      } else {
+        showErrorAndReturn("You're outside the allowed location boundary.");
+      }
+    } catch (e) {
+      showErrorAndReturn("Failed to verify location. Please try again.");
+    }
+  }
+
+  void showErrorAndReturn(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: Colors.red,
+      ),
+    );
+
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) {
+        Navigator.pop(context);
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {

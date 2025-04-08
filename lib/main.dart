@@ -2,8 +2,8 @@
 
 import 'package:flutter/material.dart';
 import 'dart:async';
+import 'dart:io';
 //import 'package:flutter/services.dart';
-import 'SigninScreen.dart';
 import 'home.dart';
 import 'index.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -28,7 +28,7 @@ class MyApp extends StatelessWidget {
         '/splash': (context) => const SplashScreen(),
         '/onboarding': (context) => const OnboardingScreen(),
         '/login': (context) => const LoginPage(),
-        '/signin': (context) => const SignInScreen(),
+       
         '/tickscreen': (context) => const TickAnimation(message: 'Login Successfull',),
        // '/signup': (context) => const SignUpScreen(),
         '/index': (context) => const IndexScreen(),
@@ -315,48 +315,61 @@ class _LoginPageState extends State<LoginPage> {
   final TextEditingController emailController = TextEditingController();
   final TextEditingController passwordController = TextEditingController();
   bool isLoading = false;
+Future<void> loginUser(bool isAdmin) async {
+  setState(() {
+    isLoading = true;
+  });
 
-  Future<void> loginUser(bool isAdmin) async {
-    setState(() {
-      isLoading = true;
-    });
+  String email = emailController.text.trim();
+  String password = passwordController.text.trim();
 
-    String email = emailController.text.trim();
-    String password = passwordController.text.trim();
+  print("📩 Attempting Firestore Login - Email: $email");
 
-    print("Attempting Login - Email: $email, Password: $password");
+  try {
+    // 🔍 Query Firestore for the user
+    QuerySnapshot querySnapshot = await FirebaseFirestore.instance
+        .collection('userdetails')
+        .where('email', isEqualTo: email)
+        .get();
 
-    try {
-      QuerySnapshot querySnapshot = await FirebaseFirestore.instance
-          .collection('userdetails')
-          .where('email', isEqualTo: email)
-          .get();
+    if (querySnapshot.docs.isEmpty) {
+      print("❌ Login Failed: User not found in Firestore");
+      showError("User not found. Please check your email.");
+    } else {
+      var userData = querySnapshot.docs.first.data() as Map<String, dynamic>;
+      String storedPassword = userData['password'].toString();
 
-      if (querySnapshot.docs.isEmpty) {
-        print("Login Failed: User not found");
-        showError("User not found!");
+      print("🔐 User Found: ${userData['name']}, Stored Password: $storedPassword");
+
+      if (storedPassword == password) {
+        print("✅ Login Successful for ${userData['name']} (Admin: $isAdmin)");
+
+        Navigator.pushNamed(
+          context,
+          '/tickscreen',
+          arguments: {
+            'isAdmin': isAdmin,
+            'name': userData['name'],
+            'email': userData['email'],
+          },
+        );
       } else {
-        var userData = querySnapshot.docs.first.data() as Map<String, dynamic>;
-        String storedPassword = userData['password'].toString();
-
-        print("User Found: ${userData['name']}, Stored Password: $storedPassword");
-
-        if (storedPassword == password) {
-          print("Login Successful for ${userData['name']} (Admin: $isAdmin)");
-          Navigator.pushNamed(context, '/tickscreen', arguments: {'isAdmin': isAdmin});
-        } else {
-          showError("Incorrect password!");
-        }
+        print("❌ Incorrect password entered");
+        showError("Incorrect password. Please try again.");
       }
-    } catch (e) {
-      print("Login Error: $e");
-      showError("Login failed! Try again.");
     }
-
-    setState(() {
-      isLoading = false;
-    });
+  } on SocketException {
+    print("⚠️ Network Error: No Internet Connection");
+    showError("No internet connection. Please try again.");
+  } catch (e) {
+    print("⚠️ Unexpected Error: $e");
+    showError("Something went wrong. Please try again.");
   }
+
+  setState(() {
+    isLoading = false;
+  });
+}
 
   void showError(String message) {
     ScaffoldMessenger.of(context).showSnackBar(
@@ -458,26 +471,43 @@ class _LoginPageState extends State<LoginPage> {
   }
 }
 
-
 class TickAnimation extends StatefulWidget {
-  const TickAnimation({super.key, required String message});
+  const TickAnimation({super.key, required this.message});
+  final String message;
 
   @override
   _TickAnimationState createState() => _TickAnimationState();
 }
 
 class _TickAnimationState extends State<TickAnimation> {
+  late bool isAdmin;
+  late String userName;
+  late String userEmail;
+
   @override
   void initState() {
     super.initState();
-    
-    // Start a 5-second timer and navigate to the HomeScreen (index.dart)
-    Future.delayed(const Duration(seconds: 2), () {
-      // After 5 seconds, navigate to the HomeScreen from index.dart
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final args = ModalRoute.of(context)?.settings.arguments as Map<String, dynamic>?;
+
+      isAdmin = args?['isAdmin'] ?? false;
+      userName = args?['name'] ?? 'User';
+      userEmail = args?['email'] ?? '';
+      
+      print('✅ TickAnimation: Received email: $userEmail');
+
+      // ✅ Optional: slight delay to show tick animation
+      await Future.delayed(const Duration(seconds: 2));
+
+      // 👉 Navigate to the right home screen
       Navigator.pushReplacement(
-        // ignore: use_build_context_synchronously
         context,
-        MaterialPageRoute(builder: (context) => HomeScreen()), // Ensure HomeScreen is in index.dart
+        MaterialPageRoute(
+          builder: (context) => isAdmin
+              ? const HomeScreen_2()
+              : HomeScreen(userName: userName, userEmail: userEmail),
+        ),
       );
     });
   }

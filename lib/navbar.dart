@@ -1,7 +1,7 @@
 // ignore_for_file: prefer_const_constructors
-
+import 'main.dart';
 import 'package:flutter/material.dart';
-import 'SigninScreen.dart';
+
 import 'addgroup.dart';
 
 
@@ -132,7 +132,7 @@ class _AppNavigationDrawerState extends State<AppNavigationDrawer> {
                 _isLoading = false;
               });
               Navigator.of(context).pushReplacement(
-                MaterialPageRoute(builder: (context) => SignInScreen()),
+                MaterialPageRoute(builder: (context) => LoginPage()),
               );
             },
           ),
