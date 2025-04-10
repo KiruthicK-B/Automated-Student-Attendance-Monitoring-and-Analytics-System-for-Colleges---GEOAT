@@ -6,6 +6,7 @@ import 'package:firebase_core/firebase_core.dart';
 import 'package:flutter/material.dart';
 import 'package:geoat_back/FinalScreen.dart';
 import 'package:geoat_back/main.dart';
+import 'package:geoat_back/mapscreen.dart';
 import 'ProfileScreen.dart';
 import 'RecordScreen.dart';
 import 'myactivity.dart';
@@ -70,7 +71,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _pages = [
       HomeContent(userName: widget.userName, userEmail: userEmail),
       RecordScreen(userName: widget.userName, userEmail: userEmail),
-      const Placeholder(),
+      MapScreen(userName: widget.userName, userEmail: userEmail),
       const ProfileScreen(),
       const ProfileEditScreen(),
     ];
@@ -742,7 +743,7 @@ class _LoadingScreenState extends State<LoadingScreen> {
           await FirebaseFirestore.instance
               .collection('userdetails')
               .where('email', isEqualTo: userEmail)
-              .limit(1)
+             
               .get();
 
       if (querySnapshot.docs.isEmpty) {
@@ -751,6 +752,8 @@ class _LoadingScreenState extends State<LoadingScreen> {
       }
 
       final userData = querySnapshot.docs.first.data();
+     
+      print("User data: $userData");
 
       // Check for required location fields
       if (!userData.containsKey("topLeftLat") ||
