@@ -1,5 +1,4 @@
-// ignore_for_file: prefer_const_constructors, sort_child_properties_last, use_build_context_synchronously, use_super_parameters
-//import 'package:permission_handler/permission_handler.dart';
+
 import 'dart:async';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -12,7 +11,7 @@ import 'RecordScreen.dart';
 import 'myactivity.dart';
 import 'task.dart';
 import 'package:geolocator/geolocator.dart';
-//import 'final_screen.dart';
+
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -51,8 +50,8 @@ class _HomeScreenState extends State<HomeScreen> {
   bool _isChatbotOpen = false;
   final TextEditingController _chatController = TextEditingController();
   final List<Map<String, String>> _chatHistory = [];
-  String currentLocation = "Chennai, India";
-  String currentTemperature = "28°C";
+  String currentLocation = "Banglore, India";
+  String currentTemperature = "22°C";
   String userName = "Kiruthick B";
   List<String> tasks = ["Complete project report", "Team meeting at 2 PM"];
   int pendingTasks = 2;
@@ -72,8 +71,8 @@ class _HomeScreenState extends State<HomeScreen> {
       HomeContent(userName: widget.userName, userEmail: userEmail),
       RecordScreen(userName: widget.userName, userEmail: userEmail),
       MapScreen(userName: widget.userName, userEmail: userEmail),
-      const ProfileScreen(),
-      const ProfileEditScreen(),
+      ProfileScreen(userName: widget.userName, userEmail: userEmail),
+      ProfileEditScreen(userName: widget.userName, userEmail: userEmail),
     ];
   }
 
@@ -168,7 +167,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            "Chennai, India",
+                            "Banglore, India",
                             style: TextStyle(
                               color: Colors.white,
                               fontSize: 18,
@@ -176,7 +175,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             ),
                           ),
                           Text(
-                            "Thu, 11 Oct 2024 - 10:30 AM", // Add dynamic date and time if needed
+                            "Thu, 17 Apr 2025 ", // Add dynamic date and time if needed
                             style: TextStyle(
                               color: Colors.white70,
                               fontSize: 12,
@@ -196,7 +195,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             color: Colors.yellow,
                             size: 24,
                           ), // Weather icon
-                          Text("28°C", style: TextStyle(color: Colors.white)),
+                          Text("26°C", style: TextStyle(color: Colors.white)),
                         ],
                       ),
                       const SizedBox(width: 16),

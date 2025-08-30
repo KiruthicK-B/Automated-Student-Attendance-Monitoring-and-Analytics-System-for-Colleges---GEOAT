@@ -86,7 +86,7 @@ class _GroupsScreenState extends State<GroupsScreen> {
           ),
         ],
       ),
-      drawer: const AppNavigationDrawer(), // Add the drawer here
+      drawer: const AppNavigationDrawer(userName: '', userEmail: '',), // Add the drawer here
       body: Center(
         child: Container(
           padding: const EdgeInsets.all(16.0),

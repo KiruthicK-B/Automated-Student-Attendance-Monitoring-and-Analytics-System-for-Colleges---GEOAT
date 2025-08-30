@@ -4,7 +4,9 @@ import 'navbar.dart'; // Your navigation drawer import
 
 // ignore: camel_case_types
 class HomeScreen_2 extends StatelessWidget {
-  const HomeScreen_2({super.key});
+   final String userName;
+  final String userEmail;
+  const HomeScreen_2({super.key, required this.userName, required this.userEmail});
 
   @override
   Widget build(BuildContext context) {
@@ -14,7 +16,7 @@ class HomeScreen_2 extends StatelessWidget {
       appBar: AppBar(
         title: const Text('Admin Dashboard'),
       ),
-      drawer: const AppNavigationDrawer(), // Navigation Drawer
+      drawer: const AppNavigationDrawer(userName: '', userEmail: '',), // Navigation Drawer
       body: SingleChildScrollView(
         child: Padding(
           padding: const EdgeInsets.all(16.0),

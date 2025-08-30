@@ -1,14 +1,17 @@
 // ignore_for_file: prefer_const_constructors
 import 'main.dart';
 import 'package:flutter/material.dart';
-
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'addgroup.dart';
 
 
-void main() => runApp(MyApp());
+void main() => runApp(MyApp(userName: '', userEmail: '',));
 
 class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+   final String userName;
+  final String userEmail;
+ 
+  const MyApp({super.key, required this.userName, required this.userEmail});
 
   @override
   Widget build(BuildContext context) {
@@ -16,21 +19,31 @@ class MyApp extends StatelessWidget {
       title: 'Navigation Drawer Demo',
       theme: ThemeData(primarySwatch: Colors.green),
       home: Scaffold(
-        appBar: AppBar(title: Text('Navigation Drawer Demo')),
-        drawer: AppNavigationDrawer(),
-        body: Center(child: Text('Home Page')),
-      ),
+  appBar: AppBar(title: Text('Navigation Drawer Demo')),
+  drawer: AppNavigationDrawer(
+    userName: userName,
+    userEmail: userEmail,
+  ),
+  body: Center(child: Text('Home Page')),
+),
+
     );
   }
 }
-
 class AppNavigationDrawer extends StatefulWidget {
-  const AppNavigationDrawer({super.key});
+  final String userName;
+  final String userEmail;
+
+  const AppNavigationDrawer({
+    super.key,
+    required this.userName,
+    required this.userEmail,
+  });
 
   @override
-  // ignore: library_private_types_in_public_api
   _AppNavigationDrawerState createState() => _AppNavigationDrawerState();
 }
+
 
 class _AppNavigationDrawerState extends State<AppNavigationDrawer> {
   bool _isLoading = false;
@@ -52,11 +65,7 @@ class _AppNavigationDrawerState extends State<AppNavigationDrawer> {
         case 'Dashboard':
           return DashboardScreen();
         case 'Groups':
-          return GroupsScreen(
-            // groupName: '',
-            // totalMembers: '',
-            // color: Colors.green,
-          );
+          
         case 'Add Group':
           return AddGroupFormScreen();
         case 'Set Coordinates':
@@ -92,11 +101,22 @@ class _AppNavigationDrawerState extends State<AppNavigationDrawer> {
             title: Text('Groups'),
             onTap: () => _navigateToScreen('Groups'),
           ),
-          ListTile(
-            leading: Icon(Icons.add),
-            title: Text('Add Group'),
-            onTap: () => _navigateToScreen('Add Group'),
-          ),
+         ListTile(
+  leading: Icon(Icons.add),
+  title: Text('Add Users'),
+  onTap: () {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (_) => AddGroupFormScreen(
+          
+        ),
+      ),
+    );
+  },
+),
+
+
           ListTile(
             leading: Icon(Icons.location_on),
             title: Text('Set Coordinates'),
@@ -384,171 +404,262 @@ class SetCoordinatesScreen extends StatefulWidget {
   const SetCoordinatesScreen({super.key});
 
   @override
-  // ignore: library_private_types_in_public_api
-  _SetCoordinatesScreenState createState() => _SetCoordinatesScreenState();
+  State<SetCoordinatesScreen> createState() => _SetCoordinatesScreenState();
 }
 
 class _SetCoordinatesScreenState extends State<SetCoordinatesScreen> {
-  final TextEditingController _latitudeController = TextEditingController();
-  final TextEditingController _longitudeController = TextEditingController();
-  final TextEditingController _organizationNameController = TextEditingController();
-  final TextEditingController _groupNameController = TextEditingController();
+  String? _selectedUserId;
+  String? _selectedUserEmail;
+  String? _selectedUserName;
 
-  double? _latitude;
-  double? _longitude;
   bool _isLoading = false;
-  String _coordinateType = 'Individual';
 
-  // Set coordinates with validation and loading
-  void _setCoordinates() async {
-    setState(() {
-      _isLoading = true;
-    });
+  List<Map<String, dynamic>> _userList = [];
 
-    final lat = double.tryParse(_latitudeController.text);
-    final lng = double.tryParse(_longitudeController.text);
+  final TextEditingController _topLeftLatController = TextEditingController();
+  final TextEditingController _topLeftLngController = TextEditingController();
+  final TextEditingController _bottomRightLatController = TextEditingController();
+  final TextEditingController _bottomRightLngController = TextEditingController();
 
-    if (lat == null || lng == null || lat < -90 || lat > 90 || lng < -180 || lng > 180) {
-      _showMessage('Please enter valid coordinates.');
+  @override
+  void initState() {
+    super.initState();
+    _fetchUsers();
+  }
+
+  Future<void> _fetchUsers() async {
+    try {
+      setState(() => _isLoading = true);
+      final snapshot = await FirebaseFirestore.instance.collection('userdetails').get();
+
+      List<Map<String, dynamic>> fetchedUsers = [];
+
+      for (var doc in snapshot.docs) {
+        final userDetails = await FirebaseFirestore.instance
+            .collection('userdetails')
+            .doc(doc.id)
+            .get();
+
+        final data = userDetails.data();
+        if (data != null) {
+          fetchedUsers.add({
+            'id': doc.id,
+            'email': data['email'] ?? 'No Email',
+            'name': data['name'] ?? 'No Name',
+          });
+        }
+      }
+
       setState(() {
+        _userList = fetchedUsers;
         _isLoading = false;
       });
+    } catch (e) {
+      setState(() => _isLoading = false);
+      _showMessage("❌ Error fetching users: $e");
+    }
+  }
+
+  Future<void> _fetchUserCoordinates(String userId) async {
+    try {
+      setState(() => _isLoading = true);
+      final doc = await FirebaseFirestore.instance.collection('userdetails').doc(userId).get();
+      final data = doc.data();
+      if (data != null) {
+        _topLeftLatController.text = (data['topLeftLat'] ?? '').toString();
+        _topLeftLngController.text = (data['topLeftLng'] ?? '').toString();
+        _bottomRightLatController.text = (data['bottomRightLat'] ?? '').toString();
+        _bottomRightLngController.text = (data['bottomRightLng'] ?? '').toString();
+
+        setState(() {
+          _selectedUserEmail = data['email'];
+          _selectedUserName = data['name'];
+        });
+      } else {
+        _clearControllers();
+      }
+      setState(() => _isLoading = false);
+    } catch (e) {
+      setState(() => _isLoading = false);
+      _showMessage("❌ Error fetching coordinates: $e");
+    }
+  }
+
+  Future<void> _saveCoordinates() async {
+    if (_selectedUserId == null) return;
+
+    final topLeftLat = double.tryParse(_topLeftLatController.text);
+    final topLeftLng = double.tryParse(_topLeftLngController.text);
+    final bottomRightLat = double.tryParse(_bottomRightLatController.text);
+    final bottomRightLng = double.tryParse(_bottomRightLngController.text);
+
+    if ([topLeftLat, topLeftLng, bottomRightLat, bottomRightLng].contains(null)) {
+      _showMessage("⚠️ Please enter valid coordinates.");
       return;
     }
 
-    await Future.delayed(const Duration(seconds: 2)); // Simulate a loading operation
-
-    setState(() {
-      _latitude = lat;
-      _longitude = lng;
-      _isLoading = false;
-    });
-
-    _showMessage('Coordinates set successfully!');
+    setState(() => _isLoading = true);
+    try {
+      await FirebaseFirestore.instance.collection('userdetails').doc(_selectedUserId).update({
+        'topLeftLat': topLeftLat,
+        'topLeftLng': topLeftLng,
+        'bottomRightLat': bottomRightLat,
+        'bottomRightLng': bottomRightLng,
+      });
+      _showMessage("✅ Coordinates updated successfully.", isSuccess: true);
+    } catch (e) {
+      _showMessage("❌ Error saving coordinates: $e");
+    } finally {
+      setState(() => _isLoading = false);
+    }
   }
 
-  // Display message
-  void _showMessage(String message) {
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(message)));
+  void _clearControllers() {
+    _topLeftLatController.clear();
+    _topLeftLngController.clear();
+    _bottomRightLatController.clear();
+    _bottomRightLngController.clear();
+  }
+
+  void _showMessage(String message, {bool isSuccess = false}) {
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(message),
+        backgroundColor: isSuccess ? Colors.green.shade600 : Colors.red.shade400,
+        duration: const Duration(seconds: 3),
+        behavior: SnackBarBehavior.floating,
+        margin: const EdgeInsets.all(16),
+      ),
+    );
   }
 
   @override
   void dispose() {
-    _latitudeController.dispose();
-    _longitudeController.dispose();
-    _organizationNameController.dispose();
-    _groupNameController.dispose();
+    _topLeftLatController.dispose();
+    _topLeftLngController.dispose();
+    _bottomRightLatController.dispose();
+    _bottomRightLngController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Set Coordinates')),
-      body: Padding(
-        padding: const EdgeInsets.all(16.0),
-        child: SingleChildScrollView(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Select type of coordinates
-              const Text(
-                'Coordinate Type:',
-                style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-              ),
-              DropdownButton<String>(
-                value: _coordinateType,
-                items: const [
-                  DropdownMenuItem(value: 'Individual', child: Text('Individual')),
-                  DropdownMenuItem(value: 'Organization', child: Text('Organization')),
-                  DropdownMenuItem(value: 'Group', child: Text('Group')),
-                ],
-                onChanged: (value) {
-                  setState(() {
-                    _coordinateType = value!;
-                  });
-                },
-              ),
-              const SizedBox(height: 16),
-
-              // Group name field if applicable
-              if (_coordinateType == 'Group')
-                TextField(
-                  controller: _groupNameController,
-                  decoration: const InputDecoration(labelText: 'Group Name'),
+      appBar: AppBar(
+        title: const Text('Set User Coordinates'),
+        centerTitle: true,
+        backgroundColor: const Color.fromARGB(255, 1, 175, 27),
+      ),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: const [
+                Icon(Icons.map, color: Colors.green, size: 28),
+                SizedBox(width: 8),
+                Text(
+                  'Assign Geofence Coordinates',
+                  style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
                 ),
+              ],
+            ),
+            const Divider(height: 30, thickness: 1),
 
-              // Organization name field if applicable
-              if (_coordinateType == 'Organization')
-                TextField(
-                  controller: _organizationNameController,
-                  decoration: const InputDecoration(labelText: 'Organization Name'),
-                ),
+            const Text('Select User:', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500)),
+            const SizedBox(height: 10),
 
-              const SizedBox(height: 20),
-
-              // Latitude input field
-              TextField(
-                controller: _latitudeController,
-                decoration: InputDecoration(
-                  labelText: 'Latitude (-90 to 90)',
-                  border: OutlineInputBorder(),
-                ),
-                keyboardType: TextInputType.number,
+            DropdownButtonFormField<String>(
+              decoration: const InputDecoration(
+                border: OutlineInputBorder(),
+                prefixIcon: Icon(Icons.person),
               ),
-              const SizedBox(height: 16),
+              isExpanded: true,
+              hint: const Text("Choose a user"),
+              value: _selectedUserId,
+              items: _userList.map((user) {
+                return DropdownMenuItem<String>(
+                  value: user['id'],
+                  child: Text("${user['name']} (${user['email']})"),
+                );
+              }).toList(),
+              onChanged: (String? newValue) {
+                setState(() {
+                  _selectedUserId = newValue;
+                });
+                if (newValue != null) {
+                  _fetchUserCoordinates(newValue);
+                }
+              },
+            ),
 
-              // Longitude input field
-              TextField(
-                controller: _longitudeController,
-                decoration: InputDecoration(
-                  labelText: 'Longitude (-180 to 180)',
-                  border: OutlineInputBorder(),
+            const SizedBox(height: 20),
+
+            if (_selectedUserEmail != null && _selectedUserName != null)
+              Card(
+                elevation: 4,
+                margin: const EdgeInsets.only(bottom: 20),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                child: ListTile(
+                  leading: const Icon(Icons.email, color: Colors.green),
+                  title: Text(_selectedUserName!),
+                  subtitle: Text(_selectedUserEmail!),
                 ),
-                keyboardType: TextInputType.number,
               ),
-              const SizedBox(height: 20),
 
-              // Set Coordinates button with loading spinner
-              Center(
-                child: _isLoading
-                    ? const CircularProgressIndicator()
-                    : ElevatedButton(
-                        onPressed: _setCoordinates,
-                        child: const Text('Set Coordinates'),
-                      ),
-              ),
-              const SizedBox(height: 30),
+            _buildCoordinateInput("Top Left Latitude", _topLeftLatController),
+            _buildCoordinateInput("Top Left Longitude", _topLeftLngController),
+            _buildCoordinateInput("Bottom Right Latitude", _bottomRightLatController),
+            _buildCoordinateInput("Bottom Right Longitude", _bottomRightLngController),
 
-              // Coordinates Preview Section
-              if (_latitude != null && _longitude != null)
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    const Text(
-                      'Current Coordinates:',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                    ),
-                    const SizedBox(height: 8),
-                    Text('Latitude: $_latitude', style: const TextStyle(fontSize: 16)),
-                    Text('Longitude: $_longitude', style: const TextStyle(fontSize: 16)),
-                    Text('Coordinate Type: $_coordinateType', style: const TextStyle(fontSize: 16)),
-                    if (_coordinateType == 'Organization')
-                      Text('Organization: ${_organizationNameController.text}', style: const TextStyle(fontSize: 16)),
-                    if (_coordinateType == 'Group')
-                      Text('Group: ${_groupNameController.text}', style: const TextStyle(fontSize: 16)),
-                  ],
+            const SizedBox(height: 20),
+
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton.icon(
+                onPressed: _isLoading ? null : _saveCoordinates,
+                icon: _isLoading
+                    ? const SizedBox(
+                        height: 20,
+                        width: 20,
+                        child: CircularProgressIndicator(
+                          color: Colors.white,
+                          strokeWidth: 2,
+                        ),
+                      )
+                    : const Icon(Icons.save),
+                label: Text(_isLoading ? "Fetching..." : "Save Coordinates"),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.green,
+                  foregroundColor: Colors.white,
+                  padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  textStyle: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
                 ),
-            ],
-          ),
+              ),
+            ),
+          ],
         ),
       ),
     );
   }
-}
 
-
-class ActiveUsersScreen extends StatelessWidget {
+  Widget _buildCoordinateInput(String label, TextEditingController controller) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 14),
+      child: TextField(
+        controller: controller,
+        keyboardType: const TextInputType.numberWithOptions(decimal: true),
+        decoration: InputDecoration(
+          labelText: label,
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          prefixIcon: const Icon(Icons.gps_fixed),
+        ),
+      ),
+    );
+  }
+}class ActiveUsersScreen extends StatelessWidget {
   const ActiveUsersScreen({super.key});
 
   @override

@@ -1,416 +1,225 @@
 import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:connectivity_plus/connectivity_plus.dart';
 import 'package:geoat_back/main.dart';
 
-
 class ProfileScreen extends StatefulWidget {
-  const ProfileScreen({super.key});
+  final String userName;
+  final String userEmail;
+
+  const ProfileScreen({
+    super.key,
+    required this.userName,
+    required this.userEmail,
+  });
 
   @override
-  // ignore: library_private_types_in_public_api
-  _ProfileScreenState createState() => _ProfileScreenState();
+  State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
   bool _isFAQExpanded = false;
-  bool _isSettingsExpanded = false;
   bool _isFullProfile = false;
   final TextEditingController _feedbackController = TextEditingController();
+  Map<String, dynamic>? userData;
+
+  bool _isFetching = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchUserData();
+  }
+
+  Future<void> _fetchUserData() async {
+    setState(() => _isFetching = true);
+
+    try {
+      final connectivityResult = await Connectivity().checkConnectivity();
+      if (connectivityResult == ConnectivityResult.none) {
+        throw Exception("No internet connection");
+      }
+
+      final usersRef = FirebaseFirestore.instance.collection('userdetails');
+      final snapshot = await usersRef.get();
+
+      // Loop through to find the UID with matching email
+      for (var doc in snapshot.docs) {
+        if (doc.data()['email'] == widget.userEmail) {
+          userData = doc.data();
+          debugPrint("Fetched User Data: $userData"); // ✅ Debug Print
+          break;
+        }
+      }
+
+      if (userData == null) {
+        throw Exception("User not found");
+      }
+    } catch (e) {
+      debugPrint("Error fetching user data: $e");
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error: ${e.toString()}")),
+      );
+    }
+
+    setState(() => _isFetching = false);
+  }
 
   @override
   Widget build(BuildContext context) {
-    // ignore: deprecated_member_use
-    return WillPopScope(
-      onWillPop: () async {
-        Navigator.of(context).pushReplacementNamed('/HomeScreen'); // Back to homepage
-        return false;
-      },
-      child: Scaffold(
-        appBar: AppBar(
-          //title: const Text("Profile"),
-          automaticallyImplyLeading: false, // Prevents back arrow from appearing
-        ),
-        body: SingleChildScrollView(
-          padding: const EdgeInsets.all(16.0),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              Stack(
-                children: [
-                  const CircleAvatar(
-                    radius: 60,
-                    backgroundImage: AssetImage('assets/profile.jpeg'),
+    return Scaffold(
+      appBar: AppBar(automaticallyImplyLeading: false),
+      body: SingleChildScrollView(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          children: [
+            Stack(
+              children: [
+                const CircleAvatar(
+                  radius: 60,
+                  backgroundImage: AssetImage('assets/profile.jpeg'),
+                ),
+                Positioned(
+                  bottom: 0,
+                  right: 0,
+                  child: IconButton(
+                    icon: const Icon(Icons.edit, color: Colors.green),
+                    onPressed: () {
+                      Navigator.of(context).push(MaterialPageRoute(
+                        builder: (context) => const ProfileEditScreen(
+                          userName: '',
+                          userEmail: '',
+                        ),
+                      ));
+                    },
                   ),
-                  Positioned(
-                    bottom: 0,
-                    right: 0,
-                    child: IconButton(
-                      icon: const Icon(Icons.edit, color: Colors.green),
-                      onPressed: () {
-                        Navigator.of(context).push(MaterialPageRoute(
-                          builder: (context) => const ProfileEditScreen(),
-                        ));
-                      },
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-              const Text('Kiruthick B',
-                  style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-              const SizedBox(height: 10),
-              const Text('kiruthick@gmail.com'),
-              const SizedBox(height: 5),
-              const Text('Phone: +91 9342696026'),
-              const SizedBox(height: 10),
-              if (_isFullProfile) ...[
-                const Text('Age: 20'),
-                const SizedBox(height: 5),
-                const Text('Designation: Software Engineer'),
-                const SizedBox(height: 5),
-                const Text('Department: IT'),
-                const SizedBox(height: 5),
-                const Text('Address: 123, Tech Avenue, Chennai'),
+                ),
               ],
-              TextButton(
-                onPressed: () =>
-                    setState(() => _isFullProfile = !_isFullProfile),
-                child: Text(_isFullProfile ? 'Show Less' : 'View Full Profile',
-                    style: const TextStyle(color: Colors.green)),
-              ),
-              const SizedBox(height: 20),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              userData?['name'] ?? widget.userName,
+              style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 10),
+            Text(widget.userEmail),
+            Text("Phone: ${userData?['phone'] ?? 'Loading...'}"),
+            const SizedBox(height: 10),
 
-              // FAQ Section with Categories
-              ExpansionPanelList(
-                expansionCallback: (int index, bool isExpanded) {
-                  setState(() {
-                    _isFAQExpanded = !_isFAQExpanded;
-                  });
-                },
-                children: [
-                  ExpansionPanel(
-                    headerBuilder: (BuildContext context, bool isExpanded) {
-                      return const ListTile(title: Text("Have Queries?"));
-                    },
-                    body: Column(
-                      children: [
-                        DropdownButtonFormField(
-                          decoration: const InputDecoration(
-                              labelText: 'Select Category'),
-                          items: const [
-                            DropdownMenuItem(
-                                value: 'account',
-                                child: Text('Account Issues')),
-                            DropdownMenuItem(
-                                value: 'feedback',
-                                child: Text('App Feedback')),
-                            DropdownMenuItem(
-                                value: 'other',
-                                child: Text('Other Queries')),
-                          ],
-                          onChanged: (value) {},
-                        ),
-                        const SizedBox(height: 10),
-                        TextFormField(
-                          controller: _feedbackController,
-                          maxLines: 5,
-                          decoration: const InputDecoration(
-                            labelText: 'Your Query or Feedback',
-                            border: OutlineInputBorder(),
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        ElevatedButton(
-                          onPressed: _handleSubmitFeedback,
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF6AB547),
-                            padding: const EdgeInsets.symmetric(
-                                vertical: 9.0, horizontal: 50.0),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(30.0),
-                            ),
-                          ),
-                          child: const Text('Submit',
-                              style: TextStyle(fontSize: 20)),
-                        ),
-                      ],
-                    ),
-                    isExpanded: _isFAQExpanded,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 20),
-
-              // Expanded Settings with Additional Features
-             ExpansionPanelList(
-  expansionCallback: (int index, bool isExpanded) {
-    setState(() {
-      _isSettingsExpanded = !_isSettingsExpanded;
-    });
-  },
-  children: [
-    ExpansionPanel(
-      headerBuilder: (BuildContext context, bool isExpanded) {
-        return const ListTile(title: Text("Settings"));
-      },
-      body: Column(
-        children: [
-          ListTile(
-            leading: const Icon(Icons.lock),
-            title: const Text("Account Security"),
-            onTap: () {
-              // Implement security settings logic here
-              showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Account Security'),
-                  content: const Text('Manage your security settings here.'),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('OK'),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-          
-          ListTile(
-            leading: const Icon(Icons.devices),
-            title: const Text("Linked Devices"),
-            onTap: () {
-              // Logic to manage linked devices
-              showDialog(
-                context: context,
-                builder: (context) => AlertDialog(
-                  title: const Text('Linked Devices'),
-                  content: const Text('Manage your linked devices here.'),
-                  actions: [
-                    TextButton(
-                      onPressed: () => Navigator.pop(context),
-                      child: const Text('OK'),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
-          
-          ListTile(
-            leading: const Icon(Icons.privacy_tip),
-            title: const Text("App Permissions"),
-            onTap: () {
-              // Permissions toggle logic
-              showModalBottomSheet(
-                context: context,
-                builder: (context) {
-                  bool cameraPermission = true;  // Example: initial state
-                  bool locationPermission = false;
-                  return StatefulBuilder(
-                    builder: (BuildContext context, StateSetter setState) {
-                      return Column(
-                        children: [
-                          SwitchListTile(
-                            title: const Text('Camera'),
-                            value: cameraPermission,
-                            onChanged: (bool value) {
-                              setState(() {
-                                cameraPermission = value;
-                              });
-                            },
-                          ),
-                          SwitchListTile(
-                            title: const Text('Location'),
-                            value: locationPermission,
-                            onChanged: (bool value) {
-                              setState(() {
-                                locationPermission = value;
-                              });
-                            },
-                          ),
-                          ElevatedButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: const Text('Save'),
-                          ),
-                        ],
-                      );
-                    },
-                  );
-                },
-              );
-            },
-          ),
-
-          ListTile(
-            leading: const Icon(Icons.color_lens),
-            title: const Text("Theme Settings"),
-            onTap: () {
-              // Logic for selecting theme
-              showModalBottomSheet(
-                context: context,
-                builder: (BuildContext context) {
-                  String themeChoice = 'System Default';
-                  return StatefulBuilder(
-                    builder: (BuildContext context, StateSetter setState) {
-                      return Column(
-                        children: [
-                          RadioListTile<String>(
-                            title: const Text('Light'),
-                            value: 'Light',
-                            groupValue: themeChoice,
-                            onChanged: (value) {
-                              setState(() {
-                                themeChoice = value!;
-                              });
-                            },
-                          ),
-                          RadioListTile<String>(
-                            title: const Text('Dark'),
-                            value: 'Dark',
-                            groupValue: themeChoice,
-                            onChanged: (value) {
-                              setState(() {
-                                themeChoice = value!;
-                              });
-                            },
-                          ),
-                          RadioListTile<String>(
-                            title: const Text('System Default'),
-                            value: 'System Default',
-                            groupValue: themeChoice,
-                            onChanged: (value) {
-                              setState(() {
-                                themeChoice = value!;
-                              });
-                            },
-                          ),
-                          ElevatedButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: const Text('Apply'),
-                          ),
-                        ],
-                      );
-                    },
-                  );
-                },
-              );
-            },
-          ),
-
-          ListTile(
-            leading: const Icon(Icons.language),
-            title: const Text("Language Preferences"),
-            onTap: () {
-              // Logic for language selection
-              showModalBottomSheet(
-                context: context,
-                builder: (BuildContext context) {
-                  String selectedLanguage = 'English';
-                  return StatefulBuilder(
-                    builder: (BuildContext context, StateSetter setState) {
-                      return Column(
-                        children: [
-                          RadioListTile<String>(
-                            title: const Text('English(UK)'),
-                            value: 'English',
-                            groupValue: selectedLanguage,
-                            onChanged: (value) {
-                              setState(() {
-                                selectedLanguage = value!;
-                              });
-                            },
-                          ),
-                          RadioListTile<String>(
-                            title: const Text('English(US)'),
-                            value: 'Spanish',
-                            groupValue: selectedLanguage,
-                            onChanged: (value) {
-                              setState(() {
-                                selectedLanguage = value!;
-                              });
-                            },
-                          ),
-                          RadioListTile<String>(
-                            title: const Text('Hindi'),
-                            value: 'French',
-                            groupValue: selectedLanguage,
-                            onChanged: (value) {
-                              setState(() {
-                                selectedLanguage = value!;
-                              });
-                            },
-                          ),
-                          ElevatedButton(
-                            onPressed: () => Navigator.pop(context),
-                            child: const Text('Apply'),
-                          ),
-                        ],
-                      );
-                    },
-                  );
-                },
-              );
-            },
-          ),
-        ],
-      ),
-      isExpanded: _isSettingsExpanded,
-    ),
-  ],
-),
-
-
-              // About Us
-              const ListTile(
-                leading: Icon(Icons.info, color: Colors.green),
-                title: Text("About Us"),
-                subtitle: Text(
-                  "Our company offers cutting-edge technology solutions aimed at improving your workflow and life.",
-                ),
-              ),
-              const SizedBox(height: 20),
-
-              // Logout Button
-              ElevatedButton.icon(
-                onPressed: () => _handleLogout(context),
-                icon: const Icon(Icons.logout, color: Colors.white),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.red,
-                  padding: const EdgeInsets.symmetric(
-                      vertical: 12.0, horizontal: 50.0),
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30.0),
-                  ),
-                ),
-                label: const Text('Logout',
-                    style: TextStyle(fontSize: 20, color: Colors.white)),
-              ),
-              const SizedBox(height: 30),
-
-              // Footer Section
-              Column(
-                children: const [
-                  Text('Contact: support@example.com',
-                      style: TextStyle(color: Colors.grey)),
-                  SizedBox(height: 8),
-                  Text('Terms & Conditions',
-                      style: TextStyle(color: Colors.green)),
-                  SizedBox(height: 8),
-                  Text('© 2024 Rights Reserved',
-                      style: TextStyle(color: Colors.grey)),
-                ],
-              ),
+            if (_isFullProfile) ...[
+              Text('Age: ${userData?['age'] ?? 'Loading...'}'),
+              Text('Designation: ${userData?['designation'] ?? 'Loading...'}'),
+              Text('Department: ${userData?['dept'] ?? 'Loading...'}'),
+              Text('Address: ${userData?['address'] ?? 'Loading...'}'),
             ],
-          ),
+
+            TextButton(
+              onPressed: () => setState(() => _isFullProfile = !_isFullProfile),
+              child: Text(
+                _isFullProfile ? 'Show Less' : 'View Full Profile',
+                style: const TextStyle(color: Colors.green),
+              ),
+            ),
+
+            const SizedBox(height: 20),
+            if (_isFetching)
+              const CircularProgressIndicator()
+            else
+              _buildFAQSection(),
+
+            const SizedBox(height: 20),
+            const ListTile(
+              leading: Icon(Icons.info, color: Colors.green),
+              title: Text("About Us"),
+              subtitle: Text(
+                  "Our company offers cutting-edge technology solutions aimed at improving your workflow and life."),
+            ),
+            const SizedBox(height: 20),
+
+            ElevatedButton.icon(
+              onPressed: () => _handleLogout(context),
+              icon: const Icon(Icons.logout, color: Colors.white),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.red,
+                padding: const EdgeInsets.symmetric(vertical: 12.0, horizontal: 50.0),
+                shape: RoundedRectangleBorder(
+                  borderRadius: BorderRadius.circular(30.0),
+                ),
+              ),
+              label: const Text('Logout',
+                  style: TextStyle(fontSize: 20, color: Colors.white)),
+            ),
+
+            const SizedBox(height: 30),
+            Column(
+              children: const [
+                Text('Contact: support@example.com', style: TextStyle(color: Colors.grey)),
+                SizedBox(height: 8),
+                Text('Terms & Conditions', style: TextStyle(color: Colors.green)),
+                SizedBox(height: 8),
+                Text('© 2024 Rights Reserved', style: TextStyle(color: Colors.grey)),
+              ],
+            ),
+          ],
         ),
       ),
     );
   }
 
-  void _handleSubmitFeedback() {
-    String feedback = _feedbackController.text;
+  Widget _buildFAQSection() {
+    return ExpansionPanelList(
+      expansionCallback: (index, isExpanded) {
+        setState(() => _isFAQExpanded = !_isFAQExpanded);
+      },
+      children: [
+        ExpansionPanel(
+          isExpanded: _isFAQExpanded,
+          headerBuilder: (_, __) => const ListTile(title: Text("Have Queries?")),
+          body: Padding(
+            padding: const EdgeInsets.all(8.0),
+            child: Column(
+              children: [
+                DropdownButtonFormField(
+                  decoration: const InputDecoration(labelText: 'Select Category'),
+                  items: const [
+                    DropdownMenuItem(value: 'account', child: Text('Account Issues')),
+                    DropdownMenuItem(value: 'feedback', child: Text('App Feedback')),
+                    DropdownMenuItem(value: 'other', child: Text('Other Queries')),
+                  ],
+                  onChanged: (value) {},
+                ),
+                const SizedBox(height: 10),
+                TextFormField(
+                  controller: _feedbackController,
+                  maxLines: 5,
+                  decoration: const InputDecoration(
+                    labelText: 'Your Query or Feedback',
+                    border: OutlineInputBorder(),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                ElevatedButton(
+                  onPressed: _handleSubmitFeedback,
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFF6AB547),
+                    padding: const EdgeInsets.symmetric(vertical: 9, horizontal: 50),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(30),
+                    ),
+                  ),
+                  child: const Text('Submit', style: TextStyle(fontSize: 20)),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 
-    // Validate feedback input
+  Future<void> _handleSubmitFeedback() async {
+    String feedback = _feedbackController.text.trim();
+
     if (feedback.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text("Please enter your feedback or query")),
@@ -418,70 +227,84 @@ class _ProfileScreenState extends State<ProfileScreen> {
       return;
     }
 
-    // Show loading dialog for submitting feedback
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          content: Row(
-            children: const [
-              CircularProgressIndicator(),
-              SizedBox(width: 20),
-              Text("Submitting feedback..."),
-            ],
-          ),
-        );
-      },
+      builder: (_) => const AlertDialog(
+        content: Row(
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 20),
+            Text("Submitting feedback..."),
+          ],
+        ),
+      ),
     );
 
-    Future.delayed(const Duration(seconds: 2), () {
-      // Close the dialog
+    try {
+      final usersRef = FirebaseFirestore.instance.collection('userdetails');
+      final snapshot = await usersRef.get();
+
+      for (var doc in snapshot.docs) {
+        if (doc.data()['email'] == widget.userEmail) {
+          await doc.reference.update({
+            'queries': FieldValue.arrayUnion([
+              {
+                'message': feedback,
+               
+              }
+            ])
+          });
+          break;
+        }
+      }
+
       Navigator.of(context).pop();
-
-      // Show success message
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Feedback submitted successfully")),
-      );
-
-      // Clear the feedback input field
       _feedbackController.clear();
-    });
+
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Feedback submitted successfully"), backgroundColor: Colors.green,),
+        
+      );
+    } catch (e) {
+      Navigator.of(context).pop();
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text("Error: $e"), backgroundColor: const Color.fromARGB(255, 251, 3, 3),),
+      );
+    }
   }
 
   void _handleLogout(BuildContext context) {
     showDialog(
       context: context,
       barrierDismissible: false,
-      builder: (BuildContext context) {
-        return AlertDialog(
-          content: Row(
-            children: const [
-              CircularProgressIndicator(),
-              SizedBox(width: 20),
-              Text("Logging Out..."),
-            ],
-          ),
-        );
-      },
+      builder: (_) => const AlertDialog(
+        content: Row(
+          children: [
+            CircularProgressIndicator(),
+            SizedBox(width: 20),
+            Text("Logging Out..."),
+          ],
+        ),
+      ),
     );
 
     Future.delayed(const Duration(seconds: 2), () {
-      // Close the dialog
       Navigator.of(context).pop();
-
-      // Navigate back to the ProfileScreen
-      Navigator.of(context).pushReplacement(MaterialPageRoute(
-        builder: (context) => const LoginPage(),
-      ));
+      Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (context) => const LoginPage()),
+      );
     });
   }
 }
 
+
 // Placeholder Edit Profile Screen
 
 class ProfileEditScreen extends StatefulWidget {
-  const ProfileEditScreen({super.key});
+   final String userName;
+  final String userEmail;
+  const ProfileEditScreen({super.key, required this.userName, required this.userEmail});
 
   @override
   // ignore: library_private_types_in_public_api

@@ -32,7 +32,7 @@ class MyApp extends StatelessWidget {
         '/tickscreen': (context) => const TickAnimation(message: 'Login Successfull',),
        // '/signup': (context) => const SignUpScreen(),
         '/index': (context) => const IndexScreen(),
-        '/admin': (context) => const HomeScreen_2(),
+        '/admin': (context) => const HomeScreen_2(userName: '', userEmail: '',),
 
       },
     );
@@ -505,7 +505,7 @@ class _TickAnimationState extends State<TickAnimation> {
         context,
         MaterialPageRoute(
           builder: (context) => isAdmin
-              ? const HomeScreen_2()
+              ? HomeScreen_2(userName: userName, userEmail: userEmail)
               : HomeScreen(userName: userName, userEmail: userEmail),
         ),
       );

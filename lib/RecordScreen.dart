@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:geoat_back/index.dart' as geoat;
-
 import 'package:intl/intl.dart';
 
 class RecordScreen extends StatefulWidget {
@@ -25,8 +24,10 @@ class _RecordScreenState extends State<RecordScreen> {
   DateTime? _selectedDate;
   TimeOfDay? _startTime;
   TimeOfDay? _endTime;
-  bool _isFetched = false;
+    bool isSpinning = false;
   bool _isLoading = false;
+
+  DateTime calendarMonth = DateTime.now();
 
   @override
   void initState() {
@@ -37,7 +38,6 @@ class _RecordScreenState extends State<RecordScreen> {
   Future<void> _fetchAllRecords() async {
     setState(() {
       _isLoading = true;
-      _isFetched = false;
     });
 
     try {
@@ -46,7 +46,7 @@ class _RecordScreenState extends State<RecordScreen> {
           .get();
 
       allRecords = snapshot.docs
-          .map((doc) => doc.data() as Map<String, dynamic>)
+          .map((doc) => doc.data())
           .where((record) => record['email'] == widget.userEmail)
           .toList();
 
@@ -57,7 +57,6 @@ class _RecordScreenState extends State<RecordScreen> {
 
     setState(() {
       _isLoading = false;
-      _isFetched = true;
     });
   }
 
@@ -66,7 +65,8 @@ class _RecordScreenState extends State<RecordScreen> {
 
     if (_selectedDate != null) {
       String formattedDate = DateFormat('yyyy-MM-dd').format(_selectedDate!);
-      tempRecords = tempRecords.where((record) => record['date'] == formattedDate).toList();
+      tempRecords =
+          tempRecords.where((record) => record['date'] == formattedDate).toList();
     }
 
     if (_startTime != null && _endTime != null) {
@@ -74,7 +74,8 @@ class _RecordScreenState extends State<RecordScreen> {
         final checkIn = record['fromTime'] ?? '';
         try {
           final timeParts = checkIn.split(':');
-          final checkInTime = TimeOfDay(hour: int.parse(timeParts[0]), minute: int.parse(timeParts[1]));
+          final checkInTime =
+              TimeOfDay(hour: int.parse(timeParts[0]), minute: int.parse(timeParts[1]));
           return _isTimeInRange(checkInTime, _startTime!, _endTime!);
         } catch (e) {
           return false;
@@ -109,217 +110,295 @@ class _RecordScreenState extends State<RecordScreen> {
     return checkDt.isAfter(startDt) && checkDt.isBefore(endDt);
   }
 
-  void _selectDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: _selectedDate ?? DateTime.now(),
-      firstDate: DateTime(2020),
-      lastDate: DateTime.now(),
-    );
+  Map<String, List<String>> getCalendarMap() {
+    Map<String, List<String>> map = {};
+    for (var record in allRecords) {
+      String date = record['date'];
+      String fromTime = record['fromTime'] ?? '00:00';
+      int hour = int.tryParse(fromTime.split(':')[0]) ?? 0;
+      String session = hour < 12 ? 'FN' : 'AN';
 
-    if (picked != null && picked != _selectedDate) {
-      setState(() => _selectedDate = picked);
-      _applyFilter();
+      if (!map.containsKey(date)) {
+        map[date] = [];
+      }
+      if (!map[date]!.contains(session)) {
+        map[date]!.add(session);
+      }
     }
+    return map;
   }
 
-  void _selectTime(BuildContext context, bool isStartTime) async {
-    final TimeOfDay? picked = await showTimePicker(
+  void _showRecordDetail(String date) {
+    List<Map<String, dynamic>> records =
+        allRecords.where((r) => r['date'] == date).toList();
+    showDialog(
       context: context,
-      initialTime: isStartTime ? (_startTime ?? TimeOfDay.now()) : (_endTime ?? TimeOfDay.now()),
+      builder: (_) => AlertDialog(
+        title: Text("Attendance on $date"),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: records
+              .map((r) =>
+                  Text("From: ${r['fromTime'] ?? '-'} To: ${r['toTime'] ?? '-'}"))
+              .toList(),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context), child: const Text("OK"))
+        ],
+      ),
     );
-
-    if (picked != null) {
-      setState(() {
-        if (isStartTime) {
-          _startTime = picked;
-        } else {
-          _endTime = picked;
-        }
-        _applyFilter();
-      });
-    }
   }
 
-  String _formatTimeOfDay(TimeOfDay? time) {
-    if (time == null) return '--:--';
-    final now = DateTime.now();
-    final dt = DateTime(now.year, now.month, now.day, time.hour, time.minute);
-    return DateFormat.Hm().format(dt);
+  void _selectMonth(BuildContext context) async {
+    showModalBottomSheet(
+      context: context,
+      builder: (_) {
+        return SizedBox(
+          height: 300,
+          child: ListView.builder(
+            itemCount: 12,
+            itemBuilder: (context, index) {
+              final month = DateTime(DateTime.now().year, index + 1, 1);
+              return ListTile(
+                title: Text(DateFormat('MMMM').format(month)),
+                onTap: () {
+                  setState(() => calendarMonth = month);
+                  Navigator.pop(context);
+                },
+              );
+            },
+          ),
+        );
+      },
+    );
   }
 
-  void _toggleCardExpansion(int index) {
-    setState(() {
-      expandedCards[index] = !(expandedCards[index] ?? false);
-    });
+Widget buildCalendar() {
+    Map<String, List<String>> calendarMap = getCalendarMap();
+    int year = calendarMonth.year;
+    int month = calendarMonth.month;
+    int daysInMonth = DateTime(year, month + 1, 0).day;
+
+    return Column(
+      children: [
+        Row(
+          children: [
+            IconButton(
+              onPressed: () => setState(() {
+                calendarMonth = DateTime(calendarMonth.year, calendarMonth.month - 1);
+              }),
+              icon: const Icon(Icons.chevron_left),
+            ),
+            Text(DateFormat('MMMM yyyy').format(calendarMonth),
+                style: const TextStyle(fontSize: 18)),
+            IconButton(
+              onPressed: () => setState(() {
+                calendarMonth = DateTime(calendarMonth.year, calendarMonth.month + 1);
+              }),
+              icon: const Icon(Icons.chevron_right),
+            ),
+            const Spacer(),
+            IconButton(
+              icon: const Icon(Icons.calendar_month, color: Colors.green),
+              onPressed: () => _selectMonth(context),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        GridView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
+          itemCount: daysInMonth,
+          gridDelegate:
+              const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 7),
+          itemBuilder: (context, index) {
+            final day = index + 1;
+            final dateStr =
+                DateFormat('yyyy-MM-dd').format(DateTime(year, month, day));
+            final sessions = calendarMap[dateStr] ?? [];
+
+            Color bgColor = Colors.transparent;
+            Widget label = Text('$day');
+
+            if (sessions.contains('FN') && sessions.contains('AN')) {
+              bgColor = Colors.green;
+              label = const Icon(Icons.check, color: Colors.white, size: 16);
+            } else if (sessions.contains('FN') || sessions.contains('AN')) {
+              bgColor = Colors.yellow.shade700;
+            }
+
+            return GestureDetector(
+              onTap: () =>
+                  sessions.isNotEmpty ? _showRecordDetail(dateStr) : null,
+              child: Tooltip(
+                message: sessions.join(', '),
+                child: Container(
+                  margin: const EdgeInsets.all(4),
+                  decoration: BoxDecoration(
+                    color: bgColor,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(color: Colors.grey.shade400),
+                  ),
+                  alignment: Alignment.center,
+                  child: label,
+                ),
+              ),
+            );
+          },
+        ),
+      ],
+    );
+  }
+Widget buildFilters() {
+
+
+  return Padding(
+    padding: const EdgeInsets.all(8),
+    child: Wrap(
+      spacing: 10,
+      runSpacing: 10,
+      children: [
+        ElevatedButton.icon(
+          icon: const Icon(Icons.date_range),
+          label: const Text("Date"),
+          onPressed: () async {
+            final picked = await showDatePicker(
+              context: context,
+              initialDate: DateTime.now(),
+              firstDate: DateTime(2023),
+              lastDate: DateTime(2100),
+            );
+            if (picked != null) {
+              setState(() => _selectedDate = picked);
+              _applyFilter();
+            }
+          },
+        ),
+        ElevatedButton.icon(
+          icon: const Icon(Icons.access_time),
+          label: const Text("Start"),
+          onPressed: () async {
+            final picked = await showTimePicker(
+              context: context,
+              initialTime: TimeOfDay.now(),
+            );
+            if (picked != null) {
+              setState(() => _startTime = picked);
+              _applyFilter();
+            }
+          },
+        ),
+        ElevatedButton.icon(
+          icon: const Icon(Icons.access_time_filled),
+          label: const Text("End"),
+          onPressed: () async {
+            final picked = await showTimePicker(
+              context: context,
+              initialTime: TimeOfDay.now(),
+            );
+            if (picked != null) {
+              setState(() => _endTime = picked);
+              _applyFilter();
+            }
+          },
+        ),
+        AnimatedRotation(
+          turns: isSpinning ? 1 : 0,
+          duration: const Duration(seconds: 1),
+          child: IconButton(
+            icon: const Icon(Icons.refresh, color: Colors.green),
+            tooltip: "Clear Filters",
+            onPressed: () {
+              setState(() {
+                isSpinning = true;
+                _selectedDate = null;
+                _startTime = null;
+                _endTime = null;
+              });
+              _applyFilter();
+              Future.delayed(const Duration(seconds: 1), () {
+                setState(() => isSpinning = false);
+              });
+            },
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+
+  Widget buildRecordList() {
+    final keys = groupedRecords.keys.toList();
+
+    return ListView.builder(
+      itemCount: keys.length,
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemBuilder: (context, index) {
+        final key = keys[index];
+        final records = groupedRecords[key]!;
+
+        return Card(
+          margin: const EdgeInsets.all(8),
+          child: ExpansionTile(
+            initiallyExpanded: expandedCards[index] ?? false,
+            onExpansionChanged: (expanded) {
+              setState(() => expandedCards[index] = expanded);
+            },
+            title: Text(key, style: const TextStyle(fontWeight: FontWeight.bold)),
+            children: records.map((record) {
+              return ListTile(
+                title: Text("From: ${record['fromTime']} - To: ${record['toTime']}"),
+                subtitle: Text("Location: ${record['location'] ?? 'Unknown'}"),
+              );
+            }).toList(),
+          ),
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final groupedKeys = groupedRecords.keys.toList();
-
     return WillPopScope(
-  onWillPop: () async {
-   Navigator.pushReplacement(
-  context,
-  MaterialPageRoute(
-    builder: (context) => geoat.HomeScreen(
-      userEmail: widget.userEmail,
-      userName: widget.userName,
-    ),
-  ),
-);
- // <-- set your home route here
-    return false; // prevent default pop
-  },
-    
-    child: Scaffold(
-      body: Column(
-        children: [
-          // Filter UI
-          Padding(
-  padding: const EdgeInsets.all(16.0),
-  child: Column(
-    children: [
-      Row(children: [
-        IconButton(
-          icon: const Icon(Icons.calendar_today, color: Colors.green),
-          onPressed: () => _selectDate(context),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            _selectedDate != null
-                ? 'Selected: ${DateFormat('dd MMM yyyy').format(_selectedDate!)}'
-                : 'Pick a date',
-            style: const TextStyle(fontSize: 16),
-          ),
-        ),
-      ]),
-      const SizedBox(height: 8),
-      SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: Row(
-          children: [
-            ElevatedButton(
-              onPressed: () => _selectTime(context, true),
-              child: Text('Start Time: ${_formatTimeOfDay(_startTime)}'),
+      onWillPop: () async {
+        Navigator.pushReplacement(
+          context,
+          MaterialPageRoute(
+            builder: (context) => geoat.HomeScreen(
+              userEmail: widget.userEmail,
+              userName: widget.userName,
             ),
-            const SizedBox(width: 8),
-            ElevatedButton(
-              onPressed: () => _selectTime(context, false),
-              child: Text('End Time: ${_formatTimeOfDay(_endTime)}'),
-            ),
-            const SizedBox(width: 8),
-           ElevatedButton(
-  onPressed: _isLoading ? null : _fetchAllRecords,
-  style: ElevatedButton.styleFrom(
-    backgroundColor: Colors.green,
-    shape: const CircleBorder(),
-    padding: const EdgeInsets.all(12),
-  ),
-  child: _isLoading
-      ? const SizedBox(
-          width: 24,
-          height: 24,
-          child: CircularProgressIndicator(
-            color: Colors.white,
-            strokeWidth: 2,
           ),
-        )
-      : const Icon(Icons.refresh, color: Colors.white),
-),
-
-          ],
-        ),
-      ),
-    ],
-  ),
-),
-
-
-          if (_isLoading)
-            const Center(child: CircularProgressIndicator())
-          else if (_isFetched && groupedRecords.isEmpty)
-            const Padding(
-              padding: EdgeInsets.all(16.0),
-              child: Text(
-                'No records found.',
-                style: TextStyle(color: Colors.red, fontSize: 16),
-              ),
-            )
-          else
-            Expanded(
-              child: ListView.builder(
-                itemCount: groupedKeys.length,
-                itemBuilder: (context, index) {
-                  final isExpanded = expandedCards[index] ?? false;
-                  final sessionKey = groupedKeys[index];
-                  final records = groupedRecords[sessionKey]!;
-
-                  return Padding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-                    child: GestureDetector(
-                      onTap: () => _toggleCardExpansion(index),
-                      child: Card(
-                        elevation: 4,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                        child: Padding(
-                          padding: const EdgeInsets.all(16.0),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Text(
-                                    sessionKey,
-                                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
-                                  ),
-                                  Icon(
-                                    isExpanded ? Icons.expand_less : Icons.expand_more,
-                                    color: Colors.green,
-                                  ),
-                                ],
-                              ),
-                              if (isExpanded) ...records.map((record) => Padding(
-                                    padding: const EdgeInsets.symmetric(vertical: 8.0),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        const Divider(),
-                                        Text("Check-In: ${record['fromTime'] ?? '-'}"),
-                                        Text("Check-Out: ${record['toTime'] ?? '-'}"),
-                                        Text("Break Time: ${record['breakTime'] ?? '-'}"),
-                                        Text("Working Hours: ${record['activeTime'] ?? '-'}"),
-                                        Text("Location: ${record['location'] ?? 'N/A'}"),
-                                      ],
-                                    ),
-                                  )),
-                            ],
-                          ),
-                        ),
+        );
+        return false;
+      },
+      child: Scaffold(
+        body: _isLoading
+            ? const Center(child: CircularProgressIndicator())
+            : Column(
+                children: [
+                  buildFilters(),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      child: Column(
+                        children: [
+                          buildRecordList(),
+                          buildCalendar(),
+                        ],
                       ),
                     ),
-                  );
-                },
+                  ),
+                ],
               ),
-            ),
-        ],
-      ),
-      floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-      floatingActionButton: Padding(
-        padding: const EdgeInsets.only(bottom: 70.0),
-        child: FloatingActionButton(
+        floatingActionButton: FloatingActionButton(
           onPressed: () {
             int totalMinutes = 0;
             for (var record in allRecords) {
               String activeTime = record['activeTime'] ?? '00hrs:00mins:00s';
-              List<String> timeParts = activeTime
-                  .replaceAll('hrs', '')
-                  .replaceAll('mins', '')
-                  .replaceAll('s', '')
-                  .split(':');
+              List<String> timeParts =
+                  activeTime.replaceAll(RegExp(r'[a-zA-Z]'), '').split(':');
               int hrs = int.tryParse(timeParts[0]) ?? 0;
               int mins = int.tryParse(timeParts[1]) ?? 0;
               totalMinutes += hrs * 60 + mins;
@@ -337,10 +416,7 @@ class _RecordScreenState extends State<RecordScreen> {
                   'Total Active Hours: $totalHours hrs $remainingMinutes mins',
                 ),
                 actions: [
-                  TextButton(
-                    onPressed: () => Navigator.pop(context),
-                    child: const Text('OK'),
-                  ),
+                  TextButton(onPressed: () => Navigator.pop(context), child: const Text('OK')),
                 ],
               ),
             );
@@ -349,7 +425,6 @@ class _RecordScreenState extends State<RecordScreen> {
           child: const Icon(Icons.info_outline),
         ),
       ),
-    ),
     );
   }
 }
